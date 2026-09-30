@@ -56,3 +56,7 @@ dkms.conf
 
 # Remove annoying files
 .DS_Store
+
+# Build output
+build/
+compile_commands.json

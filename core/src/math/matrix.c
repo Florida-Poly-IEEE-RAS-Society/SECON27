@@ -137,6 +137,9 @@ mat4_t mat4_mul(mat4_t m, f32 scalar) {
 
 /*
  * Matrix multiplication
+ * TODO:
+ * Make a better algorithm for multiplication. O(n^3) is kinda cooked
+
  */
 
 mat2_t mat2_mul_mat2(mat2_t a, mat2_t b) {
