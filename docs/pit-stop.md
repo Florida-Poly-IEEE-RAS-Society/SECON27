@@ -1,46 +1,31 @@
 # Pit Stop
 
-Source: GM2 V3.0, sections 3.1, 3.2.2, 3.3, 3.6, and Appendix G.
-
 ## Overview
-
-One pit stop per race. It must happen between lap 1 and lap 2, or between lap 2 and lap 3.
+One pit stop required per race. Must happen after lap 1 or after lap 2.
 
 ---
 
-## Pit Box Assignment
+## Spot Assignment
 
-A die roll before the race selects the pit box. The AprilTag on the wall shows the assigned box.
-
-| Die Roll | Assigned Pit Box |
+| Die Roll | Assigned Spot |
 |---|---|
-| 1 or 4 | Pit box 1 |
-| 2 or 5 | Pit box 2 |
-| 3 or 6 | Pit box 3 |
+| 1 or 4 | Spot 1 |
+| 2 or 5 | Spot 2 |
+| 3 or 6 | Spot 3 |
 
----
-
-## Tires
-
-- Red tire: the old tire. The technician pre-loads it on the robot before the race.
-- Blue tire: the fresh tire. The robot picks it up during the pit stop.
-- Both tires are TPU. The official STL is in the hardware competition downloads (GM2 Appendix D).
-- The pre-loaded tire may extend outside the 12 in starting size (GM1 <R01>).
+Die is rolled during pre-match setup. The Apriltag on the wall near the start area displays the corresponding spot ID.
 
 ---
 
 ## Sequence
 
-1. Complete lap 1 or lap 2.
-2. Enter the pit area.
-3. Drop the red tire in the assigned pit box.
-4. Pick up a blue tire. It must be a different tire than the one dropped.
-5. Leave the pit area.
-6. Keep the blue tire until the end of the match.
-
-The robot does not have to enter the assigned pit box. It can drop and pick up from outside the box (Appendix G).
-
-NOTE: GM2 V2.0 required a stop of at least 2 seconds. V3.0 removed this rule.
+1. Complete lap 1 or lap 2
+2. Enter pit area
+3. Navigate to assigned spot
+4. Stop for minimum **2 seconds** (referee verified)
+5. Drop carried tire in the pit area
+6. Pick up a fresh tire (must be a different tire than the one dropped)
+7. Exit pit area and re-enter the course
 
 ---
 
@@ -48,16 +33,21 @@ NOTE: GM2 V2.0 required a stop of at least 2 seconds. V3.0 removed this rule.
 
 | Action | Points |
 |---|---|
-| Red tire dropped in the assigned pit box | 25 |
-| Red tire dropped in another area | 12 |
-| Blue tire picked up from the assigned pit box | 40 |
-| Blue tire picked up from another area | 20 |
-| Race ended in the assigned pit box | 15 |
-
-The pickup points are removed if the robot drops the blue tire before it crosses the finish line.
+| Pit stop, stopped 2 or more seconds | 15 |
+| Pit stop, left before 2 seconds | 10 |
+| Stopped in correct assigned spot | 15 |
+| Tire dropped in pit area | 25 |
+| Fresh tire picked up | 40 |
+| Race ended in assigned pit spot | 15 |
 
 ---
 
 ## "In" Rule
+More than **75%** of the robot must be inside the pit spot boundary to count. The boundary line itself is not part of the area. No partial credit.
 
-More than **75%** of the robot must be in the assigned pit box. The boundary line is not part of the box. No partial credit.
+---
+
+## Key Notes
+- Tire pickup and drop score independently
+- Picked up tire must be different from the one dropped
+- Only one pit stop counted per race

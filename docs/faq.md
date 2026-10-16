@@ -1,80 +1,71 @@
 # FAQ
 
-> Answers below cite Game Manual 1 (GM1) and Game Manual 2 (GM2) V3.0. Replace them with official Q&A responses as they come in. Official Q&A responses take precedence over the game manuals (GM1 <C00>).
+> Update this doc as official Q&A responses come in. Official Q&A responses take precedence over the game manual.
 
-GDC calls happen once a month starting in May, about an hour each. GDC sends a form each month to vote on the time (GM2 Appendix A).
+GDC calls happen once a month starting in May, about an hour each. GDC sends a form each month to vote on the time.
 
 ---
 
 ## General
 
 **Can we bring our own practice field?**
-No. Competition organizers provide the practice fields and coordinate practice time (GM2 <G00>).
+No. Practice fields are provided by competition organizers. Practice time is coordinated by event organizers.
 
 **What takes precedence, the manual or a Q&A response?**
-From highest to lowest: head referee decision at the competition, official Q&A, GM2 written rules, GM1 written rules, GM2 images, GM1 images, other GDC documents (GM1 <C00>).
+Official Q&A responses always take precedence over the game manual.
 
 ---
 
 ## Robot
 
 **Can the robot expand beyond 12x12x12 after the match starts?**
-Yes. The size limit only applies at match start (GM1 <R01>).
-
-**Is there a minimum robot size?**
-Yes. At least 10 in. long by 10 in. wide for the first 3 in. up from the surface (GM1 <R01>).
+Yes. The size constraint only applies at match start.
 
 **Can we use a manual start instead of the flag sensor?**
-Yes, as a backup. After the press, the robot must not move for at least 5 seconds (GM1 <R03>, GM2 3.4.2).
+Yes, but only as a backup if the robot does not respond to the flag.
 
 **What happens if our robot starts early?**
-The robot loses the 10 point flag start bonus. The team also gets a Yellow Card and a 2 point penalty (GM2 3.6, <G05>).
+The 10 point flag start bonus is eliminated. No additional deduction.
 
 ---
 
 ## Pit Stop
 
 **Does the tire exchange have to happen during the pit stop?**
-Yes. Drop the red tire and pick up a blue tire during the pit stop (GM2 Appendix G).
+Yes. Drop and pickup both happen during the pit stop in the pit area.
 
 **Can the robot pick up the same tire it dropped?**
-No. It must be a different tire (GM2 3.6).
+No. Must be a different tire.
 
-**Does the robot have to stop for 2 seconds?**
-Not in V3.0. GM2 V2.0 had a 2 second minimum. V3.0 removed it.
-
-**Does the robot have to enter the assigned pit box?**
-No. It can drop and pick up tires without entering the box. Using a box other than the assigned one scores 12 points for the drop and 20 for the pickup, instead of 25 and 40 (GM2 Appendix G).
+**What if the robot leaves the pit in under 2 seconds?**
+It earns 10 points instead of the full 15. Other pit scoring (correct spot, tire drop, tire pickup) is still available.
 
 **When must the pit stop happen?**
-Between lap 1 and lap 2, or between lap 2 and lap 3 (GM2 3.2.2).
+After lap 1 or after lap 2. Not before the race and not after lap 3.
 
 ---
 
 ## Scoring
 
-**How does the "in" rule work for pit boxes?**
-More than 75% of the robot must be in the pit box. The boundary line does not count as inside. No partial credit (GM2 3.3).
+**How does the "in" rule work for pit spots?**
+More than 75% of the robot must be inside the pit spot boundary. Boundary line does not count as inside. No partial credit.
 
 **Are clean lap bonuses per lap or per race?**
-Per lap. Each of the 3 laps earns them independently.
+Per lap. Earned independently on each of the 3 laps.
 
-**Can we earn both the wall bonus and the obstacle bonus on the same lap?**
-Yes. They score separately: +15 for no gray wall contact and +25 for no obstacle contact, per lap (GM2 3.6).
+**Can we earn both the wall bonus and obstacle bonus on the same lap?**
+Yes. They are scored separately, +10 for no wall contact and +15 for no obstacle contact, per lap.
 
 ---
 
 ## Field
 
 **What if our robot touches the floor outside the field?**
-That counts as interaction outside the field. It gives a Yellow Card (GM2 <S01>).
+That counts as leaving the field perimeter and results in a Yellow Card.
 
-**Can we interact with the AprilTag or obstacles after they are placed?**
-No. Any interaction after randomization voids scoring for all tasks involving obstacles or the AprilTag (GM2 <GS01>).
-
-**How many obstacles are there?**
-Three, in different lanes on the straightaways (GM2 3.1, 3.4.1). Placement zones are in GM2 Appendix E.
+**Can we interact with the Apriltag or obstacles after they are placed?**
+No. Any interaction after randomization voids scoring for all tasks involving obstacles or the Apriltag.
 
 ---
 
-*Last updated: GM1 and GM2 V3.0 (GM2 revised 10/4/2026)*
+*Last updated: v2.0, 6/15/2026*

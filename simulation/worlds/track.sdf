@@ -1,16 +1,12 @@
 <?xml version="1.0"?>
 <!--
-  SoutheastCon 2027 Stock Car Race field.
+  SoutheastCon 2027 Stock Car Race field (approximation).
   Units: meters. Board top surface is z = 0.
-  Frame: origin at the board center. +x across the 48 in width.
-  +y along the 96 in length, toward the racecourse end. Pit area is y < -0.508.
+  Board: 48 x 96 in (1.2192 x 2.4384 m). +y points away from the pit area.
+  Pit area: bottom 28 in (y < -0.508).
 
-  Source: vertices of the official arena CAD
-  (2027 IEEE SoutheastCon Arena_Fusion360.f3d, June 2026), checked against
-  Game Manual 2 V3.0 Figure 3.2.1. See simulation/README.md "Field accuracy"
-  for the elements that are not modeled yet and why.
-
-  Generated file. Values are CAD inches converted to meters.
+  Geometry not given in docs/field.md is a placeholder and marked GUESS.
+  Replace GUESS values once the official field drawing is available.
 -->
 <sdf version="1.9">
   <world name="track">
@@ -59,53 +55,149 @@
       </link>
     </model>
 
-    <!-- ===== Field (official CAD) ===== -->
+    <!-- ===== Field: board, walls, island, center lines ===== -->
     <model name="field">
       <static>true</static>
       <link name="link">
-        <!-- Board: 48 x 96 in, 23/32 in RTD sheathing (GM2 3.2), painted Onyx. -->
-        <collision name="board_collision"><pose>0.00000 0.00000 -0.00913 0 0 0</pose><geometry><box><size>1.21920 2.43840 0.01826</size></box></geometry></collision>
-        <visual name="board_visual"><pose>0.00000 0.00000 -0.00913 0 0 0</pose><geometry><box><size>1.21920 2.43840 0.01826</size></box></geometry><material><ambient>0.2745 0.2706 0.2667 1</ambient><diffuse>0.2745 0.2706 0.2667 1</diffuse></material></visual>
-        <!-- Racecourse perimeter walls (CAD): 1 in thick, 4 in tall, Winter Chill. -->
-        <collision name="race_wall_left_collision"><pose>-0.59690 0.35560 0.05080 0 0 0</pose><geometry><box><size>0.02540 1.72720 0.10160</size></box></geometry></collision>
-        <visual name="race_wall_left_visual"><pose>-0.59690 0.35560 0.05080 0 0 0</pose><geometry><box><size>0.02540 1.72720 0.10160</size></box></geometry><material><ambient>0.7882 0.8235 0.8196 1</ambient><diffuse>0.7882 0.8235 0.8196 1</diffuse></material></visual>
-        <collision name="race_wall_right_collision"><pose>0.59690 0.35560 0.05080 0 0 0</pose><geometry><box><size>0.02540 1.72720 0.10160</size></box></geometry></collision>
-        <visual name="race_wall_right_visual"><pose>0.59690 0.35560 0.05080 0 0 0</pose><geometry><box><size>0.02540 1.72720 0.10160</size></box></geometry><material><ambient>0.7882 0.8235 0.8196 1</ambient><diffuse>0.7882 0.8235 0.8196 1</diffuse></material></visual>
-        <collision name="race_wall_end_collision"><pose>0.00000 1.20650 0.05080 0 0 0</pose><geometry><box><size>1.16840 0.02540 0.10160</size></box></geometry></collision>
-        <visual name="race_wall_end_visual"><pose>0.00000 1.20650 0.05080 0 0 0</pose><geometry><box><size>1.16840 0.02540 0.10160</size></box></geometry><material><ambient>0.7882 0.8235 0.8196 1</ambient><diffuse>0.7882 0.8235 0.8196 1</diffuse></material></visual>
-        <!-- Pit area perimeter walls (CAD): 1 in thick, 4 in tall, Onyx
-             (GM2 Appendix B: Onyx is used for the "Wall of Pit Area"). -->
-        <collision name="pit_wall_left_collision"><pose>-0.59690 -0.86360 0.05080 0 0 0</pose><geometry><box><size>0.02540 0.71120 0.10160</size></box></geometry></collision>
-        <visual name="pit_wall_left_visual"><pose>-0.59690 -0.86360 0.05080 0 0 0</pose><geometry><box><size>0.02540 0.71120 0.10160</size></box></geometry><material><ambient>0.2745 0.2706 0.2667 1</ambient><diffuse>0.2745 0.2706 0.2667 1</diffuse></material></visual>
-        <collision name="pit_wall_right_collision"><pose>0.59690 -0.86360 0.05080 0 0 0</pose><geometry><box><size>0.02540 0.71120 0.10160</size></box></geometry></collision>
-        <visual name="pit_wall_right_visual"><pose>0.59690 -0.86360 0.05080 0 0 0</pose><geometry><box><size>0.02540 0.71120 0.10160</size></box></geometry><material><ambient>0.2745 0.2706 0.2667 1</ambient><diffuse>0.2745 0.2706 0.2667 1</diffuse></material></visual>
-        <collision name="pit_wall_end_collision"><pose>0.00000 -1.20650 0.05080 0 0 0</pose><geometry><box><size>1.16840 0.02540 0.10160</size></box></geometry></collision>
-        <visual name="pit_wall_end_visual"><pose>0.00000 -1.20650 0.05080 0 0 0</pose><geometry><box><size>1.16840 0.02540 0.10160</size></box></geometry><material><ambient>0.2745 0.2706 0.2667 1</ambient><diffuse>0.2745 0.2706 0.2667 1</diffuse></material></visual>
-        <!-- Racecourse center divider: 1 x 1 x 36 in from the June 2026 CAD.
-             UNCONFIRMED: GM2 V3.0 (9/18/2026) relabels it 1"x2"x36" without
-             a finished size or orientation. Update after the GDC Q&A answer. -->
-        <collision name="center_divider_collision"><pose>0.00000 0.35560 0.01270 0 0 0</pose><geometry><box><size>0.02540 0.91440 0.02540</size></box></geometry></collision>
-        <visual name="center_divider_visual"><pose>0.00000 0.35560 0.01270 0 0 0</pose><geometry><box><size>0.02540 0.91440 0.02540</size></box></geometry><material><ambient>0.7882 0.8235 0.8196 1</ambient><diffuse>0.7882 0.8235 0.8196 1</diffuse></material></visual>
-        <!-- Divider between the pit area and the racecourse (CAD): 15.95 x 1.52 x 1 in. -->
-        <collision name="pit_divider_collision"><pose>0.00006 -0.52733 0.01270 0 0 0</pose><geometry><box><size>0.40521 0.03859 0.02540</size></box></geometry></collision>
-        <visual name="pit_divider_visual"><pose>0.00006 -0.52733 0.01270 0 0 0</pose><geometry><box><size>0.40521 0.03859 0.02540</size></box></geometry><material><ambient>0.7882 0.8235 0.8196 1</ambient><diffuse>0.7882 0.8235 0.8196 1</diffuse></material></visual>
-        <!-- Octagon racecourse line (CAD): white tape, 0.90 in wide.
-             One flat polygon per side, using the CAD outer and inner corners. -->
-        <visual name="octagon_side_0"><pose>0 0 0 0 0 0</pose><geometry><polyline><point>0.31673 -0.11176</point><point>0.31673 0.81903</point><point>0.29387 0.81903</point><point>0.29387 -0.11176</point><height>0.00051</height></polyline></geometry><material><ambient>0.9451 0.9490 0.9333 1</ambient><diffuse>0.9451 0.9490 0.9333 1</diffuse></material></visual>
-        <visual name="octagon_side_1"><pose>0 0 0 0 0 0</pose><geometry><polyline><point>0.31673 0.81903</point><point>0.16550 1.01614</point><point>0.15585 0.99328</point><point>0.29387 0.81903</point><height>0.00051</height></polyline></geometry><material><ambient>0.9451 0.9490 0.9333 1</ambient><diffuse>0.9451 0.9490 0.9333 1</diffuse></material></visual>
-        <visual name="octagon_side_2"><pose>0 0 0 0 0 0</pose><geometry><polyline><point>0.16550 1.01614</point><point>-0.16550 1.01614</point><point>-0.15585 0.99328</point><point>0.15585 0.99328</point><height>0.00051</height></polyline></geometry><material><ambient>0.9451 0.9490 0.9333 1</ambient><diffuse>0.9451 0.9490 0.9333 1</diffuse></material></visual>
-        <visual name="octagon_side_3"><pose>0 0 0 0 0 0</pose><geometry><polyline><point>-0.16550 1.01614</point><point>-0.31674 0.81904</point><point>-0.29391 0.81904</point><point>-0.15585 0.99328</point><height>0.00051</height></polyline></geometry><material><ambient>0.9451 0.9490 0.9333 1</ambient><diffuse>0.9451 0.9490 0.9333 1</diffuse></material></visual>
-        <visual name="octagon_side_4"><pose>0 0 0 0 0 0</pose><geometry><polyline><point>-0.31674 0.81904</point><point>-0.31674 -0.11175</point><point>-0.29391 -0.11175</point><point>-0.29391 0.81904</point><height>0.00051</height></polyline></geometry><material><ambient>0.9451 0.9490 0.9333 1</ambient><diffuse>0.9451 0.9490 0.9333 1</diffuse></material></visual>
-        <visual name="octagon_side_5"><pose>0 0 0 0 0 0</pose><geometry><polyline><point>-0.31674 -0.11175</point><point>-0.16551 -0.30886</point><point>-0.15585 -0.28600</point><point>-0.29391 -0.11175</point><height>0.00051</height></polyline></geometry><material><ambient>0.9451 0.9490 0.9333 1</ambient><diffuse>0.9451 0.9490 0.9333 1</diffuse></material></visual>
-        <visual name="octagon_side_6"><pose>0 0 0 0 0 0</pose><geometry><polyline><point>-0.16551 -0.30886</point><point>0.16549 -0.30886</point><point>0.15584 -0.28600</point><point>-0.15585 -0.28600</point><height>0.00051</height></polyline></geometry><material><ambient>0.9451 0.9490 0.9333 1</ambient><diffuse>0.9451 0.9490 0.9333 1</diffuse></material></visual>
-        <visual name="octagon_side_7"><pose>0 0 0 0 0 0</pose><geometry><polyline><point>0.16549 -0.30886</point><point>0.31673 -0.11176</point><point>0.29387 -0.11176</point><point>0.15584 -0.28600</point><height>0.00051</height></polyline></geometry><material><ambient>0.9451 0.9490 0.9333 1</ambient><diffuse>0.9451 0.9490 0.9333 1</diffuse></material></visual>
-        <!-- Pit boxes 1-3 (CAD): 12 x 12 in, white, 2 in from the side walls,
-             3 in apart, against the pit end wall. Numbered left to right. -->
-        <visual name="pit_box_1_visual"><pose>-0.38100 -1.04140 0.00025 0 0 0</pose><geometry><box><size>0.30480 0.30480 0.00051</size></box></geometry><material><ambient>0.9451 0.9490 0.9333 1</ambient><diffuse>0.9451 0.9490 0.9333 1</diffuse></material></visual>
-        <visual name="pit_box_2_visual"><pose>0.00000 -1.04140 0.00025 0 0 0</pose><geometry><box><size>0.30480 0.30480 0.00051</size></box></geometry><material><ambient>0.9451 0.9490 0.9333 1</ambient><diffuse>0.9451 0.9490 0.9333 1</diffuse></material></visual>
-        <visual name="pit_box_3_visual"><pose>0.38100 -1.04140 0.00025 0 0 0</pose><geometry><box><size>0.30480 0.30480 0.00051</size></box></geometry><material><ambient>0.9451 0.9490 0.9333 1</ambient><diffuse>0.9451 0.9490 0.9333 1</diffuse></material></visual>
-        <!-- Start box (CAD): 12 x 12 in, white. -->
-        <visual name="start_box_visual"><pose>0.38100 -0.72442 0.00025 0 0 0</pose><geometry><box><size>0.30480 0.30480 0.00051</size></box></geometry><material><ambient>0.9451 0.9490 0.9333 1</ambient><diffuse>0.9451 0.9490 0.9333 1</diffuse></material></visual>
+
+        <!-- Board, 23/32 in thick, painted black (Onyx). -->
+        <collision name="board_collision">
+          <pose>0 0 -0.00913 0 0 0</pose>
+          <geometry><box><size>1.2192 2.4384 0.01826</size></box></geometry>
+        </collision>
+        <visual name="board_visual">
+          <pose>0 0 -0.00913 0 0 0</pose>
+          <geometry><box><size>1.2192 2.4384 0.01826</size></box></geometry>
+          <material>
+            <ambient>0.04 0.04 0.04 1</ambient>
+            <diffuse>0.04 0.04 0.04 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+
+        <!-- Perimeter walls: 1 in wide, 4 in tall, gray (Winter Chill). -->
+        <collision name="wall_north_collision">
+          <pose>0 1.2065 0.0508 0 0 0</pose>
+          <geometry><box><size>1.2192 0.0254 0.1016</size></box></geometry>
+        </collision>
+        <visual name="wall_north_visual">
+          <pose>0 1.2065 0.0508 0 0 0</pose>
+          <geometry><box><size>1.2192 0.0254 0.1016</size></box></geometry>
+          <material><ambient>0.78 0.80 0.82 1</ambient><diffuse>0.78 0.80 0.82 1</diffuse></material>
+        </visual>
+
+        <collision name="wall_south_collision">
+          <pose>0 -1.2065 0.0508 0 0 0</pose>
+          <geometry><box><size>1.2192 0.0254 0.1016</size></box></geometry>
+        </collision>
+        <visual name="wall_south_visual">
+          <pose>0 -1.2065 0.0508 0 0 0</pose>
+          <geometry><box><size>1.2192 0.0254 0.1016</size></box></geometry>
+          <material><ambient>0.78 0.80 0.82 1</ambient><diffuse>0.78 0.80 0.82 1</diffuse></material>
+        </visual>
+
+        <collision name="wall_east_collision">
+          <pose>0.5969 0 0.0508 0 0 0</pose>
+          <geometry><box><size>0.0254 2.4384 0.1016</size></box></geometry>
+        </collision>
+        <visual name="wall_east_visual">
+          <pose>0.5969 0 0.0508 0 0 0</pose>
+          <geometry><box><size>0.0254 2.4384 0.1016</size></box></geometry>
+          <material><ambient>0.78 0.80 0.82 1</ambient><diffuse>0.78 0.80 0.82 1</diffuse></material>
+        </visual>
+
+        <collision name="wall_west_collision">
+          <pose>-0.5969 0 0.0508 0 0 0</pose>
+          <geometry><box><size>0.0254 2.4384 0.1016</size></box></geometry>
+        </collision>
+        <visual name="wall_west_visual">
+          <pose>-0.5969 0 0.0508 0 0 0</pose>
+          <geometry><box><size>0.0254 2.4384 0.1016</size></box></geometry>
+          <material><ambient>0.78 0.80 0.82 1</ambient><diffuse>0.78 0.80 0.82 1</diffuse></material>
+        </visual>
+
+        <!-- Pit divider wall at y = -0.508 (28 in from bottom).
+             GUESS: 24 in center segment, open on both sides for pit entry/exit. -->
+        <collision name="pit_wall_collision">
+          <pose>0 -0.508 0.0508 0 0 0</pose>
+          <geometry><box><size>0.6096 0.0254 0.1016</size></box></geometry>
+        </collision>
+        <visual name="pit_wall_visual">
+          <pose>0 -0.508 0.0508 0 0 0</pose>
+          <geometry><box><size>0.6096 0.0254 0.1016</size></box></geometry>
+          <material><ambient>0.78 0.80 0.82 1</ambient><diffuse>0.78 0.80 0.82 1</diffuse></material>
+        </visual>
+
+        <!-- Inner barrier of the oval.
+             GUESS: 1 x 36 in wall, centered in the racecourse zone.
+             A wider island makes each lane narrower than a 12 in robot. -->
+        <collision name="island_collision">
+          <pose>0 0.349 0.0508 0 0 0</pose>
+          <geometry><box><size>0.0254 0.9144 0.1016</size></box></geometry>
+        </collision>
+        <visual name="island_visual">
+          <pose>0 0.349 0.0508 0 0 0</pose>
+          <geometry><box><size>0.0254 0.9144 0.1016</size></box></geometry>
+          <material><ambient>0.78 0.80 0.82 1</ambient><diffuse>0.78 0.80 0.82 1</diffuse></material>
+        </visual>
+
+        <!-- Lane center lines: 1 x 36 in, white, one per straightaway.
+             Visual only, so the robot does not bump over them. -->
+        <visual name="center_line_east">
+          <pose>0.2985 0.349 0.0005 0 0 0</pose>
+          <geometry><box><size>0.0254 0.9144 0.001</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse><emissive>0.2 0.2 0.2 1</emissive></material>
+        </visual>
+        <visual name="center_line_west">
+          <pose>-0.2985 0.349 0.0005 0 0 0</pose>
+          <geometry><box><size>0.0254 0.9144 0.001</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse><emissive>0.2 0.2 0.2 1</emissive></material>
+        </visual>
+
+        <!-- AprilTag placeholder on the racecourse face of the pit wall.
+             GUESS: location. Tag is family 41h12, 68 mm.
+             TODO: replace the black square with a textured tag41h12 image. -->
+        <visual name="apriltag_border">
+          <pose>0 -0.4943 0.0508 0 0 0</pose>
+          <geometry><box><size>0.09 0.002 0.09</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual>
+        <visual name="apriltag_placeholder">
+          <pose>0 -0.4932 0.0508 0 0 0</pose>
+          <geometry><box><size>0.068 0.001 0.068</size></box></geometry>
+          <material><ambient>0 0 0 1</ambient><diffuse>0 0 0 1</diffuse></material>
+        </visual>
+
+      </link>
+    </model>
+
+    <!-- ===== Obstacle cars: one per lane, each on a straightaway ===== -->
+    <!-- GUESS: size and position. Move per match to test randomization. -->
+    <model name="obstacle_outer">
+      <static>true</static>
+      <pose>0.4413 0.55 0.04 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.10 0.18 0.08</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.10 0.18 0.08</size></box></geometry>
+          <material><ambient>0.8 0.1 0.1 1</ambient><diffuse>0.8 0.1 0.1 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="obstacle_inner">
+      <static>true</static>
+      <pose>-0.1556 0.20 0.04 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.10 0.18 0.08</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.10 0.18 0.08</size></box></geometry>
+          <material><ambient>0.9 0.6 0.1 1</ambient><diffuse>0.9 0.6 0.1 1</diffuse></material>
+        </visual>
       </link>
     </model>
 
