@@ -13,8 +13,11 @@ sudo apt install ros-jazzy-ros-gz
 ## Run
 
 ```bash
-./simulation/run_sim.sh
+./simulation/run_sim_local.sh   # native Linux or a VM
+./simulation/run_sim_wsl.sh     # WSL
 ```
+
+The local script unsets `QT_QUICK_BACKEND` and `LIBGL_ALWAYS_SOFTWARE`, which crash Gazebo outside WSL. The WSL script leaves your environment as is.
 
 Gazebo opens with the field. The robot spawns at the same spot, facing the same way, every time.
 
@@ -33,7 +36,8 @@ Set `use_sim_time:=true` on every ROS 2 node that talks to the simulation.
 
 | File | Contents |
 |---|---|
-| `run_sim.sh` | Starts everything |
+| `run_sim_local.sh` | Starts everything (native Linux / VM) |
+| `run_sim_wsl.sh` | Starts everything (WSL) |
 | `launch/sim.launch.py` | Starts Gazebo, spawns the robot, connects topics to ROS 2 |
 | `worlds/track.sdf` | The field |
 | `models/robot/robot.urdf` | The robot and its camera |
