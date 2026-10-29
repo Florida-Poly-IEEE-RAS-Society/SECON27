@@ -23,7 +23,8 @@ setup(
         ],
     },
     entry_points={
-        'console_scripts': [
+        "console_scripts": [
+            "publisher = py_motorController.timer_movement:entrypoint",
         ],
     },
 )
