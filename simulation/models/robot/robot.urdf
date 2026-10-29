@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <!--
-  Differential drive race robot with a forward camera.
+  Differential drive race robot with a forward RGB-D (depth) camera.
   Fits the 12 x 12 x 12 in (0.3048 m) start cube.
   Frames: base_link sits at wheel axle height.
 -->
@@ -10,14 +10,156 @@
   <material name="blue"><color rgba="0.1 0.3 0.8 1"/></material>
   <material name="black"><color rgba="0.05 0.05 0.05 1"/></material>
   <material name="grey"><color rgba="0.6 0.6 0.6 1"/></material>
+  <material name="red"><color rgba="0.8 0.05 0.05 1"/></material>
+  <material name="glass"><color rgba="0.1 0.15 0.2 1"/></material>
+  <material name="white"><color rgba="0.95 0.95 0.95 1"/></material>
+  <material name="headlight"><color rgba="1.0 0.9 0.4 1"/></material>
+  <material name="taillight"><color rgba="0.45 0.0 0.0 1"/></material>
 
   <!-- ===== Chassis ===== -->
+  <!-- Stock-car styling: visuals only. Collision + inertia below are unchanged. -->
   <link name="base_link">
+    <!-- Lower body -->
     <visual>
-      <origin xyz="0 0 0.02"/>
-      <geometry><box size="0.22 0.18 0.06"/></geometry>
-      <material name="blue"/>
+      <origin xyz="0 0 0.0175"/>
+      <geometry><box size="0.23 0.19 0.045"/></geometry>
+      <material name="red"/>
     </visual>
+    <!-- Hood (slopes down toward nose) -->
+    <visual>
+      <origin xyz="0.072 0 0.045" rpy="0 0.12 0"/>
+      <geometry><box size="0.085 0.19 0.01"/></geometry>
+      <material name="red"/>
+    </visual>
+    <!-- Greenhouse, windshield, rear window, roof -->
+    <visual>
+      <origin xyz="-0.03 0 0.0615"/>
+      <geometry><box size="0.09 0.15 0.043"/></geometry>
+      <material name="glass"/>
+    </visual>
+    <visual>
+      <origin xyz="0.0075 0 0.0675" rpy="0 0.66 0"/>
+      <geometry><box size="0.057 0.15 0.006"/></geometry>
+      <material name="glass"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.09 0 0.0675" rpy="0 -0.86 0"/>
+      <geometry><box size="0.046 0.15 0.006"/></geometry>
+      <material name="glass"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.045 0 0.086"/>
+      <geometry><box size="0.07 0.15 0.006"/></geometry>
+      <material name="red"/>
+    </visual>
+    <!-- Racing stripes (hood, roof) -->
+    <visual>
+      <origin xyz="0.072 0 0.0505" rpy="0 0.12 0"/>
+      <geometry><box size="0.085 0.03 0.002"/></geometry>
+      <material name="white"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.045 0 0.0895"/>
+      <geometry><box size="0.07 0.03 0.002"/></geometry>
+      <material name="white"/>
+    </visual>
+    <!-- Front splitter, side skirts -->
+    <visual>
+      <origin xyz="0.12 0 -0.003"/>
+      <geometry><box size="0.03 0.2 0.004"/></geometry>
+      <material name="black"/>
+    </visual>
+    <visual>
+      <origin xyz="0 0.097 0.002"/>
+      <geometry><box size="0.12 0.004 0.012"/></geometry>
+      <material name="black"/>
+    </visual>
+    <visual>
+      <origin xyz="0 -0.097 0.002"/>
+      <geometry><box size="0.12 0.004 0.012"/></geometry>
+      <material name="black"/>
+    </visual>
+    <!-- Rear spoiler (low, deck mounted) -->
+    <visual>
+      <origin xyz="-0.108 0.07 0.052"/>
+      <geometry><box size="0.008 0.008 0.03"/></geometry>
+      <material name="black"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.108 -0.07 0.052"/>
+      <geometry><box size="0.008 0.008 0.03"/></geometry>
+      <material name="black"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.108 0 0.07" rpy="0 -0.08 0"/>
+      <geometry><box size="0.035 0.19 0.006"/></geometry>
+      <material name="black"/>
+    </visual>
+    <!-- Headlights, taillights -->
+    <visual>
+      <origin xyz="0.1155 0.065 0.028"/>
+      <geometry><box size="0.004 0.035 0.012"/></geometry>
+      <material name="headlight"/>
+    </visual>
+    <visual>
+      <origin xyz="0.1155 -0.065 0.028"/>
+      <geometry><box size="0.004 0.035 0.012"/></geometry>
+      <material name="headlight"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.1155 0.065 0.028"/>
+      <geometry><box size="0.004 0.035 0.012"/></geometry>
+      <material name="taillight"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.1155 -0.065 0.028"/>
+      <geometry><box size="0.004 0.035 0.012"/></geometry>
+      <material name="taillight"/>
+    </visual>
+    <!-- Door number roundels -->
+    <visual>
+      <origin xyz="-0.02 0.0955 0.02"/>
+      <geometry><box size="0.032 0.002 0.026"/></geometry>
+      <material name="white"/>
+    </visual>
+    <visual>
+      <origin xyz="-0.02 -0.0955 0.02"/>
+      <geometry><box size="0.032 0.002 0.026"/></geometry>
+      <material name="white"/>
+    </visual>
+    <!-- Fake front wheels (visual only; caster carries the weight) -->
+    <visual>
+      <origin xyz="0.075 0.105 0" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.035" length="0.025"/></geometry>
+      <material name="black"/>
+    </visual>
+    <visual>
+      <origin xyz="0.075 0.105 0" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.02" length="0.027"/></geometry>
+      <material name="grey"/>
+    </visual>
+    <visual>
+      <origin xyz="0.075 -0.105 0" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.035" length="0.025"/></geometry>
+      <material name="black"/>
+    </visual>
+    <visual>
+      <origin xyz="0.075 -0.105 0" rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.02" length="0.027"/></geometry>
+      <material name="grey"/>
+    </visual>
+    <!-- Camera mast (camera pose unchanged from original sim) -->
+    <visual>
+      <origin xyz="0.10 0 0.0925"/>
+      <geometry><box size="0.012 0.012 0.085"/></geometry>
+      <material name="black"/>
+    </visual>
+    <visual>
+      <origin xyz="0.10 0 0.052"/>
+      <geometry><box size="0.03 0.03 0.006"/></geometry>
+      <material name="black"/>
+    </visual>
+
     <collision>
       <origin xyz="0 0 0.02"/>
       <geometry><box size="0.22 0.18 0.06"/></geometry>
@@ -35,6 +177,16 @@
       <origin rpy="1.5708 0 0"/>
       <geometry><cylinder radius="0.035" length="0.025"/></geometry>
       <material name="black"/>
+    </visual>
+    <visual>
+      <origin rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.02" length="0.027"/></geometry>
+      <material name="grey"/>
+    </visual>
+    <visual>
+      <origin xyz="0.022 0 0"/>
+      <geometry><box size="0.012 0.028 0.008"/></geometry>
+      <material name="white"/>
     </visual>
     <collision>
       <origin rpy="1.5708 0 0"/>
@@ -58,6 +210,16 @@
       <origin rpy="1.5708 0 0"/>
       <geometry><cylinder radius="0.035" length="0.025"/></geometry>
       <material name="black"/>
+    </visual>
+    <visual>
+      <origin rpy="1.5708 0 0"/>
+      <geometry><cylinder radius="0.02" length="0.027"/></geometry>
+      <material name="grey"/>
+    </visual>
+    <visual>
+      <origin xyz="0.022 0 0"/>
+      <geometry><box size="0.012 0.028 0.008"/></geometry>
+      <material name="white"/>
     </visual>
     <collision>
       <origin rpy="1.5708 0 0"/>
@@ -141,11 +303,11 @@
   </gazebo>
 
   <gazebo reference="camera_link">
-    <sensor name="camera" type="camera">
+    <sensor name="camera" type="rgbd_camera">
       <always_on>true</always_on>
       <update_rate>30</update_rate>
       <visualize>true</visualize>
-      <topic>camera/image_raw</topic>
+      <topic>camera</topic>
       <gz_frame_id>camera_optical_link</gz_frame_id>
       <camera>
         <camera_info_topic>camera/camera_info</camera_info_topic>
