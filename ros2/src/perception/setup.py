@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'py_cameraViewer'
+package_name = 'perception'
 
 setup(
     name=package_name,
@@ -24,7 +24,6 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'window = py_cameraViewer.camera_window_viewer:entrypoint',
         ],
     },
 )
