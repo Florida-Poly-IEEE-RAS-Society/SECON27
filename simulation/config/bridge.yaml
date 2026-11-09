@@ -56,12 +56,10 @@
   gz_type_name: "gz.msgs.Image"
   direction: GZ_TO_ROS
 
-# Point cloud from the stereo depth.
-- ros_topic_name: "camera/points"
-  gz_topic_name: "camera/points"
-  ros_type_name: "sensor_msgs/msg/PointCloud2"
-  gz_type_name: "gz.msgs.PointCloudPacked"
-  direction: GZ_TO_ROS
+# /camera/points is NOT bridged from Gazebo: Gazebo labels its cloud with the
+# optical frame but fills it in body axes, so it shows up on its side in RViz.
+# sim.launch.py builds /camera/points from the depth image with
+# depth_image_proc instead.
 
 # OAK-D Lite IMU (BMI270), 200 Hz, frame imu_link. Raw accel + gyro only:
 # orientation is not filled in, like the real chip.

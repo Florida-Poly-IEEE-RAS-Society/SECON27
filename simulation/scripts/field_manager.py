@@ -26,6 +26,20 @@ Gazebo-only command topic, used by sim_tui.py (gz.msgs.StringMsg, JSON):
                   obstacles and tolerance stay in effect for later layouts.
                   "same" re-applies the current seed with the new settings.
                   {"cmd": "flag", "up": true | false}
+                  {"cmd": "round", "id": ANY, "delay": 3, "duration": 180}
+                  Run a round (run_sim.sh --start-round, the control panel
+                  and the batch test all send this): lower the flag, resume
+                  the sim if it's paused, raise the flag `delay` sim seconds
+                  later, and pause the sim `duration` sim seconds after the
+                  flag (the 3:00 match). Progress is in /field/layout under
+                  "round". A repeated id is ignored, so a sender can resend
+                  until the layout shows it. Lowering the flag by hand or a
+                  new layout cancels the round.
+                  {"cmd": "reset", "id": ANY}
+                  Reset the match (run_sim.sh --reset, control panel key 3):
+                  stop the robot, put it back in the start box, lower the
+                  flag and end any round. The field stays the same. Shows in
+                  /field/layout as "round": {"id": ..., "state": "idle"}.
 
 Examples (with the sim running):
   ros2 topic pub --once /field/randomize std_msgs/msg/Int32 "{data: -1}"
@@ -46,6 +60,7 @@ import math
 import os
 import queue
 import random
+import signal
 import sys
 import threading
 import time
@@ -55,12 +70,16 @@ from gz.msgs10.int32_pb2 import Int32
 from gz.msgs10.pose_pb2 import Pose
 from gz.msgs10.pose_v_pb2 import Pose_V
 from gz.msgs10.stringmsg_pb2 import StringMsg
+from gz.msgs10.twist_pb2 import Twist
+from gz.msgs10.world_control_pb2 import WorldControl
+from gz.msgs10.world_stats_pb2 import WorldStatistics
 from gz.transport13 import Node
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import field_spec as F  # noqa: E402
 
 WORLD = 'track'
+ROBOT = 'race_robot'
 CAR_NAMES = [f'obstacle_{c}' for c in F.CAR_COLORS]
 CAR_Z = 0.002            # drop the car onto the board from 2 mm up
 YAW_JITTER = math.radians(5)   # cars are set roughly along the lane
@@ -154,25 +173,39 @@ class FieldManager:
         self.node = Node()
         self.lock = threading.Lock()
         self.layout = None
+        self.round = {'state': 'idle'}
+        self.sim_time = None
+        self.paused = False
         self.commands = queue.Queue()
         self.layout_pub = self.node.advertise('/field/layout', StringMsg)
+        self.cmd_vel_pub = self.node.advertise('/cmd_vel', Twist)
+        # Sim clock for the round: the stats topic is light (a few Hz). Don't
+        # use /clock here, it comes every physics step.
+        self.node.subscribe(WorldStatistics, f'/world/{WORLD}/stats', self._on_stats)
         self.node.subscribe(Int32, '/field/randomize', self._on_randomize)
         self.node.subscribe(Boolean, '/field/start_flag', self._on_flag)
         self.node.subscribe(StringMsg, '/field/command', self._on_command)
 
-    def _set_poses(self, poses):
+    def _set_poses(self, poses, tries=3):
+        """Move models. Gazebo occasionally doesn't answer a request (seen
+        right after a match reset), so retry before giving up."""
         req = Pose_V()
         req.pose.extend(poses)
-        ok, rep = self.node.request(f'/world/{WORLD}/set_pose_vector', req,
-                                    Pose_V, Boolean, 3000)
-        return ok and rep.data
+        for attempt in range(tries):
+            ok, rep = self.node.request(f'/world/{WORLD}/set_pose_vector', req,
+                                        Pose_V, Boolean, 3000)
+            if ok and rep.data:
+                return True
+            if attempt + 1 < tries:
+                time.sleep(0.2)
+        return False
 
     def wait_for_world(self, timeout):
         """Block until the world answers set_pose_vector."""
         end = time.time() + timeout
         probe = to_pose('field', 0, 0, 0)
         while time.time() < end:
-            if self._set_poses([probe]):
+            if self._set_poses([probe], tries=1):
                 return True
             time.sleep(0.5)
         return False
@@ -197,6 +230,7 @@ class FieldManager:
             poses.append(to_pose(f'pit_tag_{n}', x, y, z, yaw=F.PIT_TAG_YAW))
 
         poses.append(to_pose('start_flag', *F.flag_pose(False)))
+        self._cancel_round()
         if not self._set_poses(poses):
             print('field_manager: set_pose_vector failed', file=sys.stderr, flush=True)
             return False
@@ -246,20 +280,103 @@ class FieldManager:
               flush=True)
 
     def set_flag(self, up):
+        """Flag moved by hand (control panel, /field/start_flag): ends any round."""
+        self._cancel_round()
+        self._move_flag(up)
+
+    def _move_flag(self, up):
         if not self._set_poses([to_pose('start_flag', *F.flag_pose(up))]):
             print('field_manager: start flag move failed', file=sys.stderr, flush=True)
-            return
+            return False
         with self.lock:
             if self.layout:
                 self.layout['start_flag'] = 'up' if up else 'down'
         self.publish()
         print(f'field_manager: start flag {"up" if up else "down"}', flush=True)
+        return True
+
+    # ---- rounds ------------------------------------------------------------
+    def _pause(self, pause):
+        req = WorldControl()
+        req.pause = pause
+        ok, rep = self.node.request(f'/world/{WORLD}/control', req, WorldControl, Boolean, 3000)
+        return ok and rep.data
+
+    def start_round(self, cmd):
+        rid = cmd.get('id')
+        if rid is not None and rid == self.round.get('id'):
+            return                                  # a resend of the round we're running
+        delay = max(0.0, float(cmd.get('delay', F.ROUND_FLAG_DELAY)))
+        duration = max(0.0, float(cmd.get('duration', F.MATCH_SECONDS)))
+        self._move_flag(False)
+        if self.paused:
+            self._pause(False)
+        self.round = {'id': rid, 'state': 'countdown', 'delay': delay, 'duration': duration,
+                      'requested_at': None, 'flag_at': None, 'ends_at': None}
+        self.publish()
+        print(f'field_manager: round requested, flag up in {delay:g} s, '
+              f'sim pauses {duration:g} s after the flag', flush=True)
+
+    def reset(self, cmd):
+        """Match reset: robot stopped and back in the start box, flag down,
+        round over. The field stays the same. (/odom is not reset.)"""
+        if cmd.get('id') is not None and cmd.get('id') == self.round.get('id'):
+            return                                  # a resend of the reset we just did
+        # Stop first and let the robot come to rest: the drive plugin ramps the
+        # wheels down, so a robot moved while still rolling coasts a few cm
+        # out of place. A paused sim (round over) is resumed for the same
+        # reason; after a reset the sim runs, like a fresh start.
+        self.cmd_vel_pub.publish(Twist())
+        if self.paused:
+            self._pause(False)
+        t0, end = self.sim_time, time.time() + 3.0
+        while time.time() < end and (t0 is None or self.sim_time is None
+                                     or self.sim_time < t0 + 0.4):
+            self.cmd_vel_pub.publish(Twist())
+            time.sleep(0.05)
+        with self.lock:
+            start = (self.layout or {}).get('robot_start')
+        x, y, z, yaw = start if start else F.robot_spawn(self.args.start_turn)
+        if not self._set_poses([to_pose(ROBOT, x, y, z, yaw=yaw)]):
+            print('field_manager: could not move the robot to the start box',
+                  file=sys.stderr, flush=True)
+        self._cancel_round()
+        self._move_flag(False)
+        self.round = {'id': cmd.get('id'), 'state': 'idle'}
+        self.publish()
+        print('field_manager: match reset (robot in the start box, flag down)', flush=True)
+
+    def _cancel_round(self):
+        if self.round.get('state') in ('countdown', 'running'):
+            self.round['state'] = 'cancelled'
+            print('field_manager: round cancelled', flush=True)
+
+    def _tick_round(self):
+        r, now = self.round, self.sim_time
+        if now is None or r.get('state') not in ('countdown', 'running'):
+            return
+        if r['requested_at'] is None:
+            r['requested_at'] = now
+        if r['state'] == 'countdown' and now >= r['requested_at'] + r['delay']:
+            if self._move_flag(True):
+                r.update(state='running', flag_at=now, ends_at=now + r['duration'])
+                self.publish()
+                print(f'field_manager: round started at sim {now:.1f} s', flush=True)
+        elif r['state'] == 'running' and now >= r['ends_at']:
+            self._pause(True)
+            r.update(state='over', ended_at=now)
+            self.publish()
+            print(f'field_manager: round over at sim {now:.1f} s, sim paused', flush=True)
 
     def command(self, cmd):
         """Handle one /field/command request (already parsed JSON)."""
         kind = cmd.get('cmd')
         if kind == 'flag':
             self.set_flag(bool(cmd.get('up', True)))
+        elif kind == 'round':
+            self.start_round(cmd)
+        elif kind == 'reset':
+            self.reset(cmd)
         elif kind == 'layout':
             if 'start_tag' in cmd and cmd['start_tag'] in (0,) + F.TAG_IDS:
                 self.args.start_tag = int(cmd['start_tag'])
@@ -280,11 +397,15 @@ class FieldManager:
             if self.layout is None:
                 return
             msg = StringMsg()
-            msg.data = json.dumps(self.layout)
+            msg.data = json.dumps(dict(self.layout, round=self.round))
         self.layout_pub.publish(msg)
 
     # gz-transport service requests fail when made from its callback threads,
     # so callbacks only queue work for the main loop (run_forever).
+    def _on_stats(self, msg):
+        self.sim_time = msg.sim_time.sec + msg.sim_time.nsec * 1e-9
+        self.paused = msg.paused
+
     def _on_randomize(self, msg):
         self.commands.put((self.randomize, msg.data))
 
@@ -315,6 +436,7 @@ class FieldManager:
                           file=sys.stderr, flush=True)
                 if fn in (self.randomize, self.command):
                     last_layout = time.time()
+            self._tick_round()
             now = time.time()
             if now - last_pub >= 1.0:
                 self.publish()
@@ -356,6 +478,11 @@ def main():
     p.add_argument('--wait', type=float, default=60.0,
                    help='seconds to wait for Gazebo to come up')
     args = p.parse_args()
+
+    # Stop cleanly on Ctrl+C / ros2 launch's SIGINT. Set explicitly: a shell
+    # that starts the sim in the background (run_sim.sh --no-gui) leaves
+    # SIGINT ignored, and launch then has to SIGTERM us after 5 s.
+    signal.signal(signal.SIGINT, signal.default_int_handler)
 
     fm = FieldManager(args)
     if not fm.wait_for_world(args.wait):

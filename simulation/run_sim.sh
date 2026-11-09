@@ -5,9 +5,13 @@
 #   ./simulation/run_sim.sh                   run with a random field
 #   ./simulation/run_sim.sh seed:=42          any launch option, see README.md
 #   ./simulation/run_sim.sh --tui             control panel (second terminal)
+#   ./simulation/run_sim.sh --start-round     start a round on the running sim: flag
+#                                             up in 3 s, sim pauses after the 3:00 match
+#   ./simulation/run_sim.sh --reset           robot back in the start box, flag down
 #   ./simulation/run_sim.sh --batch --runs 5 --cmd "ros2 run ..."
 #                                             test robot code on many fields
-#   ./simulation/run_sim.sh --no-gui          no Gazebo window (faster)
+#   ./simulation/run_sim.sh --no-gui          no Gazebo window (faster); starts in the
+#                                             background and returns when it's ready
 #   ./simulation/run_sim.sh --stop            stop everything the sim started
 #
 # Works on native Ubuntu 24.04, a VM, or WSL. WSL is detected automatically.
@@ -15,7 +19,7 @@ set -euo pipefail
 
 SIM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROS_SETUP=/opt/ros/jazzy/setup.bash
-APT_PACKAGES=(ros-jazzy-ros-gz python3-pil)
+APT_PACKAGES=(ros-jazzy-ros-gz ros-jazzy-xacro ros-jazzy-depth-image-proc python3-pil)
 
 is_wsl() {
     grep -qi microsoft /proc/version 2>/dev/null
@@ -59,6 +63,7 @@ SIM_PATTERNS=(
     "^(/bin/sh -c )?ruby [^ ]*/gz sim( |\$)"
     "^[^ ]*/parameter_bridge( |\$)"
     "^[^ ]*/robot_state_publisher( |\$)"
+    "^[^ ]*/depth_image_proc/point_cloud_xyzrgb_node( |\$)"
     "^${PY} (-B )?${SIM_DIR}/scripts/[a-z_]+\\.py"
 )
 
@@ -102,7 +107,8 @@ if [[ "${1:-}" == "--install" ]]; then
     exit 0
 fi
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    # The comment block at the top of this file, without the '#'.
+    awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "${BASH_SOURCE[0]}"
     exit 0
 fi
 
@@ -115,6 +121,18 @@ if [[ "${1:-}" == "--tui" ]]; then
     exec python3 -B "${SIM_DIR}/scripts/sim_tui.py"
 fi
 
+# Start a round, or reset the match, on the sim that is already running
+# (with or without its window).
+if [[ "${1:-}" == "--start-round" || "${1:-}" == "--reset" ]]; then
+    action=start
+    [[ "$1" == "--reset" ]] && action=reset
+    set +u
+    # shellcheck disable=SC1090
+    source "$ROS_SETUP"
+    set -u
+    exec python3 -B "${SIM_DIR}/scripts/match.py" "$action"
+fi
+
 # Batch test: run robot code against many random fields, headless.
 if [[ "${1:-}" == "--batch" ]]; then
     shift
@@ -125,10 +143,14 @@ if [[ "${1:-}" == "--batch" ]]; then
     exec python3 -B "${SIM_DIR}/scripts/batch_test.py" "$@"
 fi
 
-# --no-gui: server only, no window. Same as the launch option gui:=false.
+# --no-gui: server only, no window (gui:=false). There's nothing to watch, so
+# it starts in the background and returns once the sim is ready (field set,
+# robot spawned, camera sending frames). Stop it with --stop.
+NO_GUI=0
 if [[ "${1:-}" == "--no-gui" ]]; then
     shift
     set -- "$@" gui:=false
+    NO_GUI=1
 fi
 
 if [[ ! -f "$ROS_SETUP" ]] || [[ -n "$(missing_packages)" ]]; then
@@ -138,8 +160,9 @@ if [[ ! -f "$ROS_SETUP" ]] || [[ -n "$(missing_packages)" ]]; then
 fi
 
 # A second Gazebo with the same world makes the field commands go to the
-# wrong instance, so refuse to start one.
-if pgrep -f "^gz sim server" >/dev/null; then
+# wrong instance, so refuse to start one. Match any `gz sim ...` process:
+# with --no-gui there is no separate "gz sim server" process.
+if pgrep -f "^gz sim( |\$)" >/dev/null; then
     echo "A Gazebo simulation is already running. Close it first:"
     echo "  ./simulation/run_sim.sh --stop"
     exit 1
@@ -157,4 +180,20 @@ if ! is_wsl; then
     unset QT_QUICK_BACKEND LIBGL_ALWAYS_SOFTWARE
 fi
 
-exec ros2 launch "${SIM_DIR}/launch/sim.launch.py" "$@"
+if [[ "$NO_GUI" == 0 ]]; then
+    exec ros2 launch "${SIM_DIR}/launch/sim.launch.py" "$@"
+fi
+
+LOG="$(mktemp "${TMPDIR:-/tmp}/secon27-sim-XXXXXX.log")"
+# nohup: keep running after this script (and its terminal) exits.
+nohup ros2 launch "${SIM_DIR}/launch/sim.launch.py" "$@" >"$LOG" 2>&1 </dev/null &
+SIM_PID=$!
+echo "Starting the sim in the background (log: $LOG) ..."
+if python3 -B "${SIM_DIR}/scripts/wait_ready.py" --pid "$SIM_PID"; then
+    echo "Sim ready. Stop it with: ./simulation/run_sim.sh --stop"
+    exit 0
+fi
+echo "The sim did not become ready. End of the log:"
+tail -n 20 "$LOG"
+stop_all
+exit 1

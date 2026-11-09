@@ -1,11 +1,47 @@
 <?xml version="1.0"?>
 <!--
-  Differential drive race robot with a Luxonis OAK-D Lite on a rear mast,
-  facing forward.
+  SECON27 race robot: stock-car body, rear-wheel drive, front-wheel steering
+  (Ackermann, like the real chassis: one servo steers the front wheels),
+  Luxonis OAK-D Lite on an adjustable mast.
   Fits the 12 x 12 x 12 in (0.3048 m) start cube.
-  Frames: base_link sits at wheel axle height.
+
+  Frames: base_link is the center of the body at wheel-axle height
+  (x forward, z up). Rear axle at x = -0.06, front axle at x = +0.075.
+
+  The camera mount is set by xacro arguments, which sim.launch.py passes
+  through from its launch options (cam_x, cam_y, cam_z, cam_pitch, cam_yaw):
+    cam_x      m forward of base_link (body center)   (default -0.10, rear deck)
+    cam_y      m left of the centerline                (default 0)
+    cam_z      m above the floor, lens center          (default 0.185)
+    cam_pitch  deg, positive tilts DOWN                (default 0, level)
+    cam_yaw    deg, positive turns LEFT                (default 0, forward)
+  See simulation/README.md, "Camera placement".
 -->
-<robot name="race_robot">
+<robot name="race_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:arg name="cam_x" default="-0.10"/>
+  <xacro:arg name="cam_y" default="0.0"/>
+  <xacro:arg name="cam_z" default="0.185"/>
+  <xacro:arg name="cam_pitch" default="0.0"/>
+  <xacro:arg name="cam_yaw" default="0.0"/>
+
+  <xacro:property name="wheel_r" value="0.035"/>
+  <xacro:property name="rear_x" value="-0.06"/>       <!-- rear (drive) axle -->
+  <xacro:property name="front_x" value="0.075"/>      <!-- front (steered) axle -->
+  <xacro:property name="track" value="0.21"/>         <!-- wheel centers, left to right -->
+  <xacro:property name="kingpin" value="0.18"/>       <!-- steering pivots, inboard of the tires -->
+
+  <!-- ASSUMED until measured on the real robot -->
+  <xacro:property name="steer_limit" value="0.5236"/> <!-- 30 deg servo lock, inner wheel -->
+  <xacro:property name="max_speed" value="0.8"/>      <!-- m/s -->
+  <xacro:property name="max_accel" value="1.5"/>      <!-- m/s^2 -->
+
+  <xacro:property name="cam_x" value="$(arg cam_x)"/>
+  <xacro:property name="cam_y" value="$(arg cam_y)"/>
+  <xacro:property name="cam_z_base" value="${$(arg cam_z) - wheel_r}"/>
+  <xacro:property name="cam_pitch" value="${$(arg cam_pitch) * pi / 180}"/>
+  <xacro:property name="cam_yaw" value="${$(arg cam_yaw) * pi / 180}"/>
+  <xacro:property name="deck_top" value="0.049"/>     <!-- rear deck, base frame -->
 
   <!-- ===== Materials ===== -->
   <material name="blue"><color rgba="0.1 0.3 0.8 1"/></material>
@@ -18,7 +54,7 @@
   <material name="taillight"><color rgba="0.45 0.0 0.0 1"/></material>
 
   <!-- ===== Chassis ===== -->
-  <!-- Stock-car styling: visuals only. Collision + inertia below are unchanged. -->
+  <!-- Stock-car styling: visuals only. -->
   <link name="base_link">
     <!-- Lower body -->
     <visual>
@@ -128,38 +164,19 @@
       <geometry><box size="0.032 0.002 0.026"/></geometry>
       <material name="white"/>
     </visual>
-    <!-- Fake front wheels (visual only; caster carries the weight) -->
-    <visual>
-      <origin xyz="0.075 0.105 0" rpy="1.5708 0 0"/>
-      <geometry><cylinder radius="0.035" length="0.025"/></geometry>
-      <material name="black"/>
-    </visual>
-    <visual>
-      <origin xyz="0.075 0.105 0" rpy="1.5708 0 0"/>
-      <geometry><cylinder radius="0.02" length="0.027"/></geometry>
-      <material name="grey"/>
-    </visual>
-    <visual>
-      <origin xyz="0.075 -0.105 0" rpy="1.5708 0 0"/>
-      <geometry><cylinder radius="0.035" length="0.025"/></geometry>
-      <material name="black"/>
-    </visual>
-    <visual>
-      <origin xyz="0.075 -0.105 0" rpy="1.5708 0 0"/>
-      <geometry><cylinder radius="0.02" length="0.027"/></geometry>
-      <material name="grey"/>
-    </visual>
-    <!-- Camera mast, rear deck (see camera_joint) -->
-    <visual>
-      <origin xyz="-0.10 0 0.0925"/>
-      <geometry><box size="0.012 0.012 0.085"/></geometry>
-      <material name="black"/>
-    </visual>
-    <visual>
-      <origin xyz="-0.10 0 0.052"/>
-      <geometry><box size="0.03 0.03 0.006"/></geometry>
-      <material name="black"/>
-    </visual>
+    <!-- Camera mast: from the rear deck up to the camera -->
+    <xacro:if value="${cam_z_base - 0.014 > deck_top}">
+      <visual>
+        <origin xyz="${cam_x} ${cam_y} ${(deck_top + cam_z_base - 0.014) / 2}"/>
+        <geometry><box size="0.012 0.012 ${cam_z_base - 0.014 - deck_top}"/></geometry>
+        <material name="black"/>
+      </visual>
+      <visual>
+        <origin xyz="${cam_x} ${cam_y} ${deck_top + 0.003}"/>
+        <geometry><box size="0.03 0.03 0.006"/></geometry>
+        <material name="black"/>
+      </visual>
+    </xacro:if>
 
     <collision>
       <origin xyz="0 0 0.02"/>
@@ -172,104 +189,82 @@
     </inertial>
   </link>
 
-  <!-- ===== Drive wheels (rear) ===== -->
-  <link name="left_wheel_link">
-    <visual>
-      <origin rpy="1.5708 0 0"/>
-      <geometry><cylinder radius="0.035" length="0.025"/></geometry>
-      <material name="black"/>
-    </visual>
-    <visual>
-      <origin rpy="1.5708 0 0"/>
-      <geometry><cylinder radius="0.02" length="0.027"/></geometry>
-      <material name="grey"/>
-    </visual>
-    <visual>
-      <origin xyz="0.022 0 0"/>
-      <geometry><box size="0.012 0.028 0.008"/></geometry>
-      <material name="white"/>
-    </visual>
-    <collision>
-      <origin rpy="1.5708 0 0"/>
-      <geometry><cylinder radius="0.035" length="0.025"/></geometry>
-    </collision>
-    <inertial>
-      <mass value="0.1"/>
-      <inertia ixx="3.6e-5" ixy="0" ixz="0" iyy="6.1e-5" iyz="0" izz="3.6e-5"/>
-    </inertial>
-  </link>
+  <!-- ===== Wheels (old look: black tire, grey hub, white marker) ===== -->
+  <xacro:macro name="wheel_link" params="name">
+    <link name="${name}">
+      <visual>
+        <origin rpy="1.5708 0 0"/>
+        <geometry><cylinder radius="0.035" length="0.025"/></geometry>
+        <material name="black"/>
+      </visual>
+      <visual>
+        <origin rpy="1.5708 0 0"/>
+        <geometry><cylinder radius="0.02" length="0.027"/></geometry>
+        <material name="grey"/>
+      </visual>
+      <visual>
+        <origin xyz="0.022 0 0"/>
+        <geometry><box size="0.012 0.028 0.008"/></geometry>
+        <material name="white"/>
+      </visual>
+      <collision>
+        <origin rpy="1.5708 0 0"/>
+        <geometry><cylinder radius="0.035" length="0.025"/></geometry>
+      </collision>
+      <inertial>
+        <mass value="0.1"/>
+        <inertia ixx="3.6e-5" ixy="0" ixz="0" iyy="6.1e-5" iyz="0" izz="3.6e-5"/>
+      </inertial>
+    </link>
+    <gazebo reference="${name}">
+      <mu1>1.0</mu1>
+      <mu2>1.0</mu2>
+    </gazebo>
+  </xacro:macro>
 
-  <joint name="left_wheel_joint" type="continuous">
-    <parent link="base_link"/>
-    <child link="left_wheel_link"/>
-    <origin xyz="-0.06 0.105 0"/>
-    <axis xyz="0 1 0"/>
-  </joint>
+  <!-- Rear: driven -->
+  <xacro:macro name="rear_wheel" params="side s">
+    <xacro:wheel_link name="${side}_wheel_link"/>
+    <joint name="${side}_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="${side}_wheel_link"/>
+      <origin xyz="${rear_x} ${s * track / 2} 0"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+  </xacro:macro>
+  <xacro:rear_wheel side="left" s="1"/>
+  <xacro:rear_wheel side="right" s="-1"/>
 
-  <link name="right_wheel_link">
-    <visual>
-      <origin rpy="1.5708 0 0"/>
-      <geometry><cylinder radius="0.035" length="0.025"/></geometry>
-      <material name="black"/>
-    </visual>
-    <visual>
-      <origin rpy="1.5708 0 0"/>
-      <geometry><cylinder radius="0.02" length="0.027"/></geometry>
-      <material name="grey"/>
-    </visual>
-    <visual>
-      <origin xyz="0.022 0 0"/>
-      <geometry><box size="0.012 0.028 0.008"/></geometry>
-      <material name="white"/>
-    </visual>
-    <collision>
-      <origin rpy="1.5708 0 0"/>
-      <geometry><cylinder radius="0.035" length="0.025"/></geometry>
-    </collision>
-    <inertial>
-      <mass value="0.1"/>
-      <inertia ixx="3.6e-5" ixy="0" ixz="0" iyy="6.1e-5" iyz="0" izz="3.6e-5"/>
-    </inertial>
-  </link>
-
-  <joint name="right_wheel_joint" type="continuous">
-    <parent link="base_link"/>
-    <child link="right_wheel_link"/>
-    <origin xyz="-0.06 -0.105 0"/>
-    <axis xyz="0 1 0"/>
-  </joint>
-
-  <!-- ===== Front caster (frictionless ball) ===== -->
-  <link name="caster_link">
-    <visual>
-      <geometry><sphere radius="0.015"/></geometry>
-      <material name="grey"/>
-    </visual>
-    <collision>
-      <geometry><sphere radius="0.015"/></geometry>
-    </collision>
-    <inertial>
-      <mass value="0.02"/>
-      <inertia ixx="1.8e-6" ixy="0" ixz="0" iyy="1.8e-6" iyz="0" izz="1.8e-6"/>
-    </inertial>
-  </link>
-
-  <joint name="caster_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="caster_link"/>
-    <origin xyz="0.08 0 -0.02"/>
-  </joint>
+  <!-- Front: steered by the servo (one steering joint per side, as in an
+       Ackermann linkage), free rolling. Same spot as the old model's
+       front wheels. -->
+  <xacro:macro name="front_wheel" params="side s">
+    <link name="front_${side}_knuckle">
+      <inertial>
+        <mass value="0.01"/>
+        <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+      </inertial>
+    </link>
+    <joint name="front_${side}_steer_joint" type="revolute">
+      <parent link="base_link"/>
+      <child link="front_${side}_knuckle"/>
+      <origin xyz="${front_x} ${s * kingpin / 2} 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="${-steer_limit}" upper="${steer_limit}" effort="5" velocity="8"/>
+    </joint>
+    <xacro:wheel_link name="front_${side}_wheel_link"/>
+    <joint name="front_${side}_wheel_joint" type="continuous">
+      <parent link="front_${side}_knuckle"/>
+      <child link="front_${side}_wheel_link"/>
+      <origin xyz="0 ${s * (track - kingpin) / 2} 0"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+  </xacro:macro>
+  <xacro:front_wheel side="left" s="1"/>
+  <xacro:front_wheel side="right" s="-1"/>
 
   <!-- ===== Camera: Luxonis OAK-D Lite ===== -->
-  <!-- Mast top, REAR of the chassis, level, facing forward. The camera is
-       fixed (no pan/tilt). Mounting it at the back puts it ~8 in further from
-       the start flag tower, which brings the raised flag into the top-left of
-       the frame with the robot facing straight ahead in the start box. Level
-       (0 deg tilt) is needed for that: tilted down 10-20 deg the flag is out
-       of view. The robot's own hood shows in the bottom of the image; mask it
-       out in your vision code. (Flag position is an ASSUMPTION until Game
-       Manual Appendix F is published; see simulation/README.md.)
-       camera_link is the center of the OAK-D Lite body, +x out of the lenses.
+  <!-- camera_link is the center of the OAK-D Lite body, +x out of the lenses.
        Body 91 x 28 x 17.5 mm, 61 g. Lenses on the front face: left mono,
        color in the middle, right mono, 75 mm stereo baseline.
        Specs: https://docs.luxonis.com/hardware/products/OAK-D%20Lite -->
@@ -279,17 +274,17 @@
       <material name="grey"/>
     </visual>
     <visual>
-      <origin xyz="0.0089 0 0" rpy="0 1.5708 0"/>
+      <origin xyz="0.0089 0 0" rpy="0 ${pi / 2} 0"/>
       <geometry><cylinder radius="0.0055" length="0.001"/></geometry>
       <material name="glass"/>
     </visual>
     <visual>
-      <origin xyz="0.0089 0.0375 0" rpy="0 1.5708 0"/>
+      <origin xyz="0.0089 0.0375 0" rpy="0 ${pi / 2} 0"/>
       <geometry><cylinder radius="0.004" length="0.001"/></geometry>
       <material name="glass"/>
     </visual>
     <visual>
-      <origin xyz="0.0089 -0.0375 0" rpy="0 1.5708 0"/>
+      <origin xyz="0.0089 -0.0375 0" rpy="0 ${pi / 2} 0"/>
       <geometry><cylinder radius="0.004" length="0.001"/></geometry>
       <material name="glass"/>
     </visual>
@@ -305,16 +300,15 @@
   <joint name="camera_joint" type="fixed">
     <parent link="base_link"/>
     <child link="camera_link"/>
-    <origin xyz="-0.10 0 0.15" rpy="0 0 0"/>
+    <origin xyz="${cam_x} ${cam_y} ${cam_z_base}" rpy="0 ${cam_pitch} ${cam_yaw}"/>
   </joint>
 
   <!-- ROS optical frame convention: z forward, x right, y down. -->
   <link name="camera_optical_link"/>
-
   <joint name="camera_optical_joint" type="fixed">
     <parent link="camera_link"/>
     <child link="camera_optical_link"/>
-    <origin rpy="-1.5708 0 -1.5708"/>
+    <origin rpy="${-pi / 2} 0 ${-pi / 2}"/>
   </joint>
 
   <!-- OAK-D Lite's built-in IMU (Bosch BMI270), inside the camera body.
@@ -322,35 +316,21 @@
        real camera the chip's axes differ; DepthAI / the ROS driver rotate
        them, so check your driver's frame before reusing sim-tuned code. -->
   <link name="imu_link"/>
-
   <joint name="imu_joint" type="fixed">
     <parent link="camera_link"/>
     <child link="imu_link"/>
-    <origin xyz="0 0 0" rpy="0 0 0"/>
   </joint>
 
-  <!-- ===== Gazebo (Harmonic) extensions ===== -->
-  <!-- Keep caster_link as its own link. Otherwise the URDF converter merges it
-       into base_link and the zero-friction setting can be lost. -->
-  <gazebo reference="caster_joint">
-    <preserveFixedJoint>true</preserveFixedJoint>
-  </gazebo>
-
-  <gazebo reference="caster_link">
-    <mu1>0.0</mu1>
-    <mu2>0.0</mu2>
-  </gazebo>
-
+  <!-- ===== Gazebo (Harmonic) ===== -->
   <!-- OAK-D Lite, modeled the way most DepthAI pipelines run it: stereo depth
        aligned to the color camera (setDepthAlign(CAM_A)), so color and depth
        share one image grid, one camera_info and one frame.
          Color, IMX214: 69 x 54 deg FOV (4:3). The real sensor is 13 MP;
-           640 x 480 keeps the sim fast. Raise width/height to match your
-           pipeline if you need more detail.
-         Depth, 2x OV7251 global-shutter mono, 75 mm baseline: minimum depth
-           0.20 m with extended disparity (0.40 m without), ideal range to
-           12 m. Anything closer than 0.20 m reads as no depth; the color
-           image still shows it. -->
+           640 x 480 keeps the sim fast.
+         Depth, 2x OV7251, 75 mm baseline: minimum depth 0.20 m with
+           extended disparity (0.40 m without), ideal range to 12 m.
+       The ROS point cloud /camera/points is built from this depth by
+       depth_image_proc (see sim.launch.py), not taken from Gazebo. -->
   <gazebo reference="camera_link">
     <sensor name="oakd" type="rgbd_camera">
       <pose>0.0089 0 0 0 0 0</pose>
@@ -386,14 +366,10 @@
     </sensor>
   </gazebo>
 
-  <!-- BMI270 IMU, 200 Hz (DepthAI tops out near 250 Hz on this chip).
-       Raw accel + gyro only, like the real BMI270: no orientation.
-       Noise from the Bosch datasheet, per axis at 200 Hz:
-         gyro  0.007 dps/sqrt(Hz) -> 1.73e-3 rad/s
-         accel 160 ug/sqrt(Hz)    -> 0.022 m/s^2
-       Bias spread assumes a calibrated sensor (raw zero offsets are larger:
-       about +/-0.5 dps and +/-20 mg). Accel includes gravity (+9.81 on z at
-       rest), as on the real chip. -->
+  <!-- BMI270 IMU, 200 Hz. Raw accel + gyro only (no orientation), datasheet
+       noise per axis at 200 Hz: gyro 0.007 dps/sqrt(Hz) -> 1.73e-3 rad/s,
+       accel 160 ug/sqrt(Hz) -> 0.022 m/s^2. Bias spread assumes a
+       calibrated sensor. Accel includes gravity (+9.81 on z at rest). -->
   <gazebo reference="imu_link">
     <sensor name="oakd_imu" type="imu">
       <always_on>true</always_on>
@@ -416,13 +392,27 @@
     </sensor>
   </gazebo>
 
+  <!-- Rear-wheel drive + servo steering. cmd_vel keeps its meaning:
+       linear.x = forward speed (m/s), angular.z = yaw rate (rad/s); the
+       plugin turns the yaw rate into a steering angle, clamped to the servo
+       limit. A car can't turn in place: angular.z with linear.x = 0 does
+       nothing. -->
   <gazebo>
-    <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
+    <plugin filename="gz-sim-ackermann-steering-system" name="gz::sim::systems::AckermannSteering">
       <left_joint>left_wheel_joint</left_joint>
       <right_joint>right_wheel_joint</right_joint>
-      <wheel_separation>0.21</wheel_separation>
-      <wheel_radius>0.035</wheel_radius>
-      <max_linear_acceleration>2.0</max_linear_acceleration>
+      <left_steering_joint>front_left_steer_joint</left_steering_joint>
+      <right_steering_joint>front_right_steer_joint</right_steering_joint>
+      <kingpin_width>${kingpin}</kingpin_width>
+      <steering_limit>${steer_limit}</steering_limit>
+      <wheel_base>${front_x - rear_x}</wheel_base>
+      <wheel_separation>${track}</wheel_separation>
+      <wheel_radius>${wheel_r}</wheel_radius>
+      <min_velocity>${-max_speed}</min_velocity>
+      <max_velocity>${max_speed}</max_velocity>
+      <min_acceleration>-3.0</min_acceleration>
+      <max_acceleration>${max_accel}</max_acceleration>
+      <steer_p_gain>10.0</steer_p_gain>
       <topic>cmd_vel</topic>
       <odom_topic>odom</odom_topic>
       <tf_topic>tf</tf_topic>
