@@ -1,0 +1,10 @@
+# Keep Unix line endings even when the repo is cloned with Git for Windows
+# (core.autocrlf=true). CRLF breaks the scripts under WSL: "bash\r: No such file".
+*.sh   text eol=lf
+*.py   text eol=lf
+*.sdf  text eol=lf
+*.urdf text eol=lf
+*.yaml text eol=lf
+*.config text eol=lf
+*.md   text eol=lf
+*.png  binary

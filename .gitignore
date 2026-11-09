@@ -65,3 +65,36 @@ compile_commands.json
 !/ros2/README.md
 !/ros2/src/
 !/ros2/src/**
+
+# ----- Python -----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# ----- ROS 2 / colcon (build/ is covered above) -----
+install/
+log/
+# Recorded bags
+rosbag2_*/
+*.db3
+*.mcap
+
+# ----- Simulation -----
+# Batch test output (./simulation/run_sim.sh --batch)
+/simulation/test_results/
+
+# ----- Editors -----
+# Vim sessions and swap files
+.session
+Session.vim
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# ----- OS -----
+Thumbs.db

@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <!--
-  Differential drive race robot with a forward RGB-D (depth) camera.
+  Differential drive race robot with a Luxonis OAK-D Lite on a rear mast,
+  facing forward.
   Fits the 12 x 12 x 12 in (0.3048 m) start cube.
   Frames: base_link sits at wheel axle height.
 -->
@@ -148,14 +149,14 @@
       <geometry><cylinder radius="0.02" length="0.027"/></geometry>
       <material name="grey"/>
     </visual>
-    <!-- Camera mast (camera pose unchanged from original sim) -->
+    <!-- Camera mast, rear deck (see camera_joint) -->
     <visual>
-      <origin xyz="0.10 0 0.0925"/>
+      <origin xyz="-0.10 0 0.0925"/>
       <geometry><box size="0.012 0.012 0.085"/></geometry>
       <material name="black"/>
     </visual>
     <visual>
-      <origin xyz="0.10 0 0.052"/>
+      <origin xyz="-0.10 0 0.052"/>
       <geometry><box size="0.03 0.03 0.006"/></geometry>
       <material name="black"/>
     </visual>
@@ -259,26 +260,52 @@
     <origin xyz="0.08 0 -0.02"/>
   </joint>
 
-  <!-- ===== Camera ===== -->
-  <!-- Mast top, front of chassis, pitched down 0.35 rad to see the track and the AprilTag wall. -->
+  <!-- ===== Camera: Luxonis OAK-D Lite ===== -->
+  <!-- Mast top, REAR of the chassis, level, facing forward. The camera is
+       fixed (no pan/tilt). Mounting it at the back puts it ~8 in further from
+       the start flag tower, which brings the raised flag into the top-left of
+       the frame with the robot facing straight ahead in the start box. Level
+       (0 deg tilt) is needed for that: tilted down 10-20 deg the flag is out
+       of view. The robot's own hood shows in the bottom of the image; mask it
+       out in your vision code. (Flag position is an ASSUMPTION until Game
+       Manual Appendix F is published; see simulation/README.md.)
+       camera_link is the center of the OAK-D Lite body, +x out of the lenses.
+       Body 91 x 28 x 17.5 mm, 61 g. Lenses on the front face: left mono,
+       color in the middle, right mono, 75 mm stereo baseline.
+       Specs: https://docs.luxonis.com/hardware/products/OAK-D%20Lite -->
   <link name="camera_link">
     <visual>
-      <geometry><box size="0.02 0.05 0.03"/></geometry>
-      <material name="black"/>
+      <geometry><box size="0.0175 0.091 0.028"/></geometry>
+      <material name="grey"/>
+    </visual>
+    <visual>
+      <origin xyz="0.0089 0 0" rpy="0 1.5708 0"/>
+      <geometry><cylinder radius="0.0055" length="0.001"/></geometry>
+      <material name="glass"/>
+    </visual>
+    <visual>
+      <origin xyz="0.0089 0.0375 0" rpy="0 1.5708 0"/>
+      <geometry><cylinder radius="0.004" length="0.001"/></geometry>
+      <material name="glass"/>
+    </visual>
+    <visual>
+      <origin xyz="0.0089 -0.0375 0" rpy="0 1.5708 0"/>
+      <geometry><cylinder radius="0.004" length="0.001"/></geometry>
+      <material name="glass"/>
     </visual>
     <collision>
-      <geometry><box size="0.02 0.05 0.03"/></geometry>
+      <geometry><box size="0.0175 0.091 0.028"/></geometry>
     </collision>
     <inertial>
-      <mass value="0.03"/>
-      <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5"/>
+      <mass value="0.061"/>
+      <inertia ixx="4.6e-5" ixy="0" ixz="0" iyy="5.6e-6" iyz="0" izz="4.4e-5"/>
     </inertial>
   </link>
 
   <joint name="camera_joint" type="fixed">
     <parent link="base_link"/>
     <child link="camera_link"/>
-    <origin xyz="0.10 0 0.15" rpy="0 0.35 0"/>
+    <origin xyz="-0.10 0 0.15" rpy="0 0 0"/>
   </joint>
 
   <!-- ROS optical frame convention: z forward, x right, y down. -->
@@ -288,6 +315,18 @@
     <parent link="camera_link"/>
     <child link="camera_optical_link"/>
     <origin rpy="-1.5708 0 -1.5708"/>
+  </joint>
+
+  <!-- OAK-D Lite's built-in IMU (Bosch BMI270), inside the camera body.
+       imu_link uses the robot convention (x forward, y left, z up). On the
+       real camera the chip's axes differ; DepthAI / the ROS driver rotate
+       them, so check your driver's frame before reusing sim-tuned code. -->
+  <link name="imu_link"/>
+
+  <joint name="imu_joint" type="fixed">
+    <parent link="camera_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
   </joint>
 
   <!-- ===== Gazebo (Harmonic) extensions ===== -->
@@ -302,8 +341,19 @@
     <mu2>0.0</mu2>
   </gazebo>
 
+  <!-- OAK-D Lite, modeled the way most DepthAI pipelines run it: stereo depth
+       aligned to the color camera (setDepthAlign(CAM_A)), so color and depth
+       share one image grid, one camera_info and one frame.
+         Color, IMX214: 69 x 54 deg FOV (4:3). The real sensor is 13 MP;
+           640 x 480 keeps the sim fast. Raise width/height to match your
+           pipeline if you need more detail.
+         Depth, 2x OV7251 global-shutter mono, 75 mm baseline: minimum depth
+           0.20 m with extended disparity (0.40 m without), ideal range to
+           12 m. Anything closer than 0.20 m reads as no depth; the color
+           image still shows it. -->
   <gazebo reference="camera_link">
-    <sensor name="camera" type="rgbd_camera">
+    <sensor name="oakd" type="rgbd_camera">
+      <pose>0.0089 0 0 0 0 0</pose>
       <always_on>true</always_on>
       <update_rate>30</update_rate>
       <visualize>true</visualize>
@@ -311,7 +361,7 @@
       <gz_frame_id>camera_optical_link</gz_frame_id>
       <camera>
         <camera_info_topic>camera/camera_info</camera_info_topic>
-        <horizontal_fov>1.3963</horizontal_fov>
+        <horizontal_fov>1.2043</horizontal_fov>
         <image>
           <width>640</width>
           <height>480</height>
@@ -319,14 +369,50 @@
         </image>
         <clip>
           <near>0.02</near>
-          <far>10.0</far>
+          <far>20.0</far>
         </clip>
+        <depth_camera>
+          <clip>
+            <near>0.20</near>
+            <far>12.0</far>
+          </clip>
+        </depth_camera>
         <noise>
           <type>gaussian</type>
           <mean>0.0</mean>
           <stddev>0.007</stddev>
         </noise>
       </camera>
+    </sensor>
+  </gazebo>
+
+  <!-- BMI270 IMU, 200 Hz (DepthAI tops out near 250 Hz on this chip).
+       Raw accel + gyro only, like the real BMI270: no orientation.
+       Noise from the Bosch datasheet, per axis at 200 Hz:
+         gyro  0.007 dps/sqrt(Hz) -> 1.73e-3 rad/s
+         accel 160 ug/sqrt(Hz)    -> 0.022 m/s^2
+       Bias spread assumes a calibrated sensor (raw zero offsets are larger:
+       about +/-0.5 dps and +/-20 mg). Accel includes gravity (+9.81 on z at
+       rest), as on the real chip. -->
+  <gazebo reference="imu_link">
+    <sensor name="oakd_imu" type="imu">
+      <always_on>true</always_on>
+      <update_rate>200</update_rate>
+      <topic>camera/imu</topic>
+      <gz_frame_id>imu_link</gz_frame_id>
+      <imu>
+        <enable_orientation>false</enable_orientation>
+        <angular_velocity>
+          <x><noise type="gaussian"><mean>0</mean><stddev>1.73e-3</stddev><bias_mean>0</bias_mean><bias_stddev>5e-4</bias_stddev></noise></x>
+          <y><noise type="gaussian"><mean>0</mean><stddev>1.73e-3</stddev><bias_mean>0</bias_mean><bias_stddev>5e-4</bias_stddev></noise></y>
+          <z><noise type="gaussian"><mean>0</mean><stddev>1.73e-3</stddev><bias_mean>0</bias_mean><bias_stddev>5e-4</bias_stddev></noise></z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x><noise type="gaussian"><mean>0</mean><stddev>0.022</stddev><bias_mean>0</bias_mean><bias_stddev>0.02</bias_stddev></noise></x>
+          <y><noise type="gaussian"><mean>0</mean><stddev>0.022</stddev><bias_mean>0</bias_mean><bias_stddev>0.02</bias_stddev></noise></y>
+          <z><noise type="gaussian"><mean>0</mean><stddev>0.022</stddev><bias_mean>0</bias_mean><bias_stddev>0.02</bias_stddev></noise></z>
+        </linear_acceleration>
+      </imu>
     </sensor>
   </gazebo>
 
