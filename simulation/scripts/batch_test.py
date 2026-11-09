@@ -4,12 +4,18 @@
     ./simulation/run_sim.sh --batch --runs 10 \\
         --cmd "ros2 run my_pkg race_node --ros-args -p use_sim_time:=true"
 
+Any other launch option (see README, "Launch options") goes after the batch
+options as key:=value and applies to every run, e.g. a camera mount:
+
+    ./simulation/run_sim.sh --batch --runs 5 --cmd "..." cam_x:=-0.11 cam_yaw:=15
+
 For each run the script:
   1. starts the sim without its window (gui:=false) with that run's seed
   2. starts your command (optional; without it, this is a smoke test)
-  3. waits --flag-delay sim seconds, then raises the start flag
-  4. watches the robot until --duration sim seconds after the flag, or until
-     your command exits
+  3. starts a round, the same one as `run_sim.sh --start-round`: the start
+     flag goes up --flag-delay sim seconds later, and the sim pauses
+     --duration sim seconds after the flag
+  4. watches the robot until the round is over or your command exits
   5. stops everything and moves on to the next seed
 
 It does not score runs. It reports facts you can't easily see when nobody is
@@ -36,6 +42,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 
 from gz.msgs10.pose_v_pb2 import Pose_V
 from gz.msgs10.stringmsg_pb2 import StringMsg
@@ -57,6 +64,11 @@ STALL_WINDOW_S = 10.0     # no movement for this long (sim time) = stalled
 STALL_M = 0.05
 FROZEN_S = 30.0           # wall seconds without sim time moving = sim froze
 TRACK_CENTER = (0.0, F.m(F.RAIL_YC))
+# Launch options the batch sets per run, and the batch option to use instead.
+BATCH_OWNED = {'seed': '--seeds', 'gui': '--gui', 'obstacles': '--obstacles',
+               'start_tag': '--start-tag', 'start_turn': '--start-turn',
+               'tolerance': '--tolerance', 'randomize': '(nothing: every run is a new field)',
+               'interval': '(nothing: one field per run)'}
 
 
 def parse_seeds(text):
@@ -80,7 +92,9 @@ def is_wsl():
 
 
 def sim_running():
-    return subprocess.run(['pgrep', '-f', '^gz sim server'],
+    # Any `gz sim ...` process. With gui:=false there is no separate
+    # "gz sim server" process, so don't look for that name.
+    return subprocess.run(['pgrep', '-f', '^gz sim( |$)'],
                           stdout=subprocess.DEVNULL).returncode == 0
 
 
@@ -145,7 +159,13 @@ class Watcher:
     def _poses(self, msg):
         with self.lock:
             for p in msg.pose:
-                if p.name == ROBOT or p.name.startswith('obstacle_'):
+                if p.name == ROBOT:
+                    # base_link is the rear axle; track the footprint center.
+                    q = p.orientation
+                    yaw = math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z))
+                    cx, cy = F.robot_center(p.position.x, p.position.y, yaw)
+                    self.poses[p.name] = (cx, cy, p.position.z)
+                elif p.name.startswith('obstacle_'):
                     self.poses[p.name] = (p.position.x, p.position.y, p.position.z)
 
     def snapshot(self):
@@ -168,10 +188,17 @@ class Watcher:
             self.sim_time, self.layout, self.poses = None, None, {}
         self._last_t = self._last_change = None
 
-    def raise_flag(self):
+    def start_round(self, rid, delay, duration):
+        """Ask the field manager for a round (resend until the layout shows it)."""
         msg = StringMsg()
-        msg.data = json.dumps({'cmd': 'flag', 'up': True})
+        msg.data = json.dumps({'cmd': 'round', 'id': rid, 'delay': delay, 'duration': duration})
         self.cmd_pub.publish(msg)
+
+    def round(self, rid):
+        """This round's state from the layout, or None until it's accepted."""
+        with self.lock:
+            r = (self.layout or {}).get('round') or {}
+        return r if r.get('id') == rid else None
 
 
 def run_one(seed, args, watcher, out_dir):
@@ -183,7 +210,7 @@ def run_one(seed, args, watcher, out_dir):
                   f'gui:={"true" if args.gui else "false"}',
                   f'obstacles:={args.obstacles}', f'start_tag:={args.start_tag}',
                   f'start_turn:={args.start_turn}',
-                  f'tolerance:={"true" if args.tolerance else "false"}']
+                  f'tolerance:={"true" if args.tolerance else "false"}'] + args.launch_args
     env = dict(os.environ)
     if not is_wsl():
         # Same rule as run_sim.sh: these crash Gazebo on native Linux / VMs,
@@ -226,17 +253,30 @@ def run_one(seed, args, watcher, out_dir):
                                      stderr=subprocess.STDOUT, start_new_session=True,
                                      env=env)
 
-        # Flag after flag_delay sim seconds. Moving before it is an early start.
-        t0, _, poses = watcher.snapshot()
+        # Start the round: the field manager raises the flag after flag_delay
+        # sim seconds and pauses the sim after the match. Moving before the
+        # flag is an early start.
+        _, _, poses = watcher.snapshot()
         pre = poses[ROBOT]
+        rid = uuid.uuid4().hex
+        last_send = 0.0
         try:
-            while watcher.snapshot()[0] - t0 < args.flag_delay:
+            while True:
+                r = watcher.round(rid)
+                if r is None and time.time() - last_send > 0.5:
+                    watcher.start_round(rid, args.flag_delay, args.duration)
+                    last_send = time.time()
+                if r is not None and r.get('state') in ('running', 'over'):
+                    break
+                if r is not None and r.get('state') == 'cancelled':
+                    result['status'] = 'round cancelled (flag lowered or new field)'
+                    return result
                 watcher.wait_sim(sim, 0.05)
         except SimFroze as e:
             result['status'] = str(e)
             return result
-        watcher.raise_flag()
-        flag_t, _, poses = watcher.snapshot()
+        flag_t = r['flag_at']
+        _, _, poses = watcher.snapshot()
         early = math.hypot(poses[ROBOT][0] - pre[0], poses[ROBOT][1] - pre[1]) > CAR_HIT_M
 
         # Watch the run.
@@ -249,11 +289,13 @@ def run_one(seed, args, watcher, out_dir):
         last_angle = None
         off_field = False
         history = []          # (t, x, y) for stall detection
-        end_reason = 'time limit'
+        end_reason = 'round over'
         while True:
             t, _, poses = watcher.snapshot()
             el = t - flag_t
-            if el >= args.duration:
+            # The round ends when the field manager pauses the sim. The time
+            # check is only a fallback if it never says so.
+            if (watcher.round(rid) or {}).get('state') == 'over' or el >= args.duration + 5.0:
                 break
             if args.cmd and robot.poll() is not None:
                 end_reason = f'robot command exited ({robot.returncode})'
@@ -329,7 +371,8 @@ def write_summary(results, args, out_dir):
         json.dump({'args': vars(args), 'runs': results}, fh, indent=2)
     lines = ['# Batch test', '',
              f'Command: `{args.cmd or "(none: smoke test)"}`  ',
-             f'Duration: {args.duration:.0f} sim s after the flag. Obstacles: {args.obstacles}.', '',
+             f'Duration: {args.duration:.0f} sim s after the flag. Obstacles: {args.obstacles}.'
+             + (f" Launch options: `{' '.join(args.launch_args)}`." if args.launch_args else ''), '',
              '| Seed | Status | Pit | Early start | Left box (s) | Distance (m) | Laps ~ | Final zone | Cars hit | Off field | Stalled | Ended |',
              '|---|---|---|---|---|---|---|---|---|---|---|---|']
     for r in results:
@@ -363,10 +406,12 @@ def main():
     g.add_argument('--runs', type=int, default=5, help='number of random seeds (default 5)')
     g.add_argument('--seeds', help='exact seeds, e.g. "1,2,10-15"')
     p.add_argument('--cmd', default='', help='command that starts your robot code')
-    p.add_argument('--duration', type=float, default=180.0,
-                   help='sim seconds to watch after the flag (default 180 = one match)')
-    p.add_argument('--flag-delay', type=float, default=3.0,
-                   help='sim seconds between your code starting and the flag (default 3)')
+    p.add_argument('--duration', type=float, default=F.MATCH_SECONDS,
+                   help='sim seconds from the flag until the sim pauses '
+                        f'(default {F.MATCH_SECONDS:g} = one match)')
+    p.add_argument('--flag-delay', type=float, default=F.ROUND_FLAG_DELAY,
+                   help='sim seconds between your code starting and the flag '
+                        f'(default {F.ROUND_FLAG_DELAY:g})')
     p.add_argument('--obstacles', type=int, default=F.DEFAULT_NUM_OBSTACLES)
     p.add_argument('--start-tag', type=int, default=0, choices=(0, 1, 2, 3))
     p.add_argument('--start-turn', type=float, default=0.0)
@@ -376,7 +421,15 @@ def main():
                    help='wall seconds to wait for each sim to start')
     p.add_argument('--out', default=None,
                    help='results folder (default simulation/test_results/<date-time>)')
-    args = p.parse_args()
+    p.add_argument('launch_args', nargs='*', metavar='key:=value',
+                   help='other launch options for every run, e.g. cam_x:=-0.11 cam_yaw:=15')
+    args = p.parse_intermixed_args()
+    for a in args.launch_args:
+        key = a.split(':=', 1)[0]
+        if ':=' not in a or not key:
+            p.error(f'launch option {a!r} must look like key:=value')
+        if key in BATCH_OWNED:
+            p.error(f'{key}:= is set by the batch itself; use {BATCH_OWNED[key]} instead')
 
     # Clean up on Ctrl+C *and* on SIGTERM (e.g. ./run_sim.sh --stop): both
     # end up in run_one's `finally`, which stops your command and the sim.
