@@ -33,7 +33,8 @@
   gz_type_name: "gz.msgs.Model"
   direction: GZ_TO_ROS
 
-# RGB image. ROS name kept as camera/image_raw so existing viewer node works.
+# OAK-D Lite color camera (69 deg HFOV). ROS name kept as camera/image_raw
+# so the existing viewer node works.
 - ros_topic_name: "camera/image_raw"
   gz_topic_name: "camera/image"
   ros_type_name: "sensor_msgs/msg/Image"
@@ -46,16 +47,51 @@
   gz_type_name: "gz.msgs.CameraInfo"
   direction: GZ_TO_ROS
 
-# Depth image from rgbd_camera. 32FC1, meters.
+# OAK-D Lite stereo depth, aligned to the color image (same size and
+# camera_info). 32FC1, meters. Pixels under 0.20 m (min depth) or past 12 m
+# have no depth.
 - ros_topic_name: "camera/depth_image"
   gz_topic_name: "camera/depth_image"
   ros_type_name: "sensor_msgs/msg/Image"
   gz_type_name: "gz.msgs.Image"
   direction: GZ_TO_ROS
 
-# Point cloud from rgbd_camera.
+# Point cloud from the stereo depth.
 - ros_topic_name: "camera/points"
   gz_topic_name: "camera/points"
   ros_type_name: "sensor_msgs/msg/PointCloud2"
   gz_type_name: "gz.msgs.PointCloudPacked"
   direction: GZ_TO_ROS
+
+# OAK-D Lite IMU (BMI270), 200 Hz, frame imu_link. Raw accel + gyro only:
+# orientation is not filled in, like the real chip.
+- ros_topic_name: "camera/imu"
+  gz_topic_name: "camera/imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+
+# ----- Field (simulation/scripts/field_manager.py) -----
+
+# Ground truth for the current layout, JSON, 1 Hz: assigned pit / start tag
+# ID, die roll, obstacle names, quadrants, lanes and poses. For testing and
+# scoring only; the robot must not read this during a real run.
+- ros_topic_name: "field/layout"
+  gz_topic_name: "/field/layout"
+  ros_type_name: "std_msgs/msg/String"
+  gz_type_name: "gz.msgs.StringMsg"
+  direction: GZ_TO_ROS
+
+# New random layout. data = seed, < 0 = random seed.
+- ros_topic_name: "field/randomize"
+  gz_topic_name: "/field/randomize"
+  ros_type_name: "std_msgs/msg/Int32"
+  gz_type_name: "gz.msgs.Int32"
+  direction: ROS_TO_GZ
+
+# Start flag. true = raise (race start), false = lower.
+- ros_topic_name: "field/start_flag"
+  gz_topic_name: "/field/start_flag"
+  ros_type_name: "std_msgs/msg/Bool"
+  gz_type_name: "gz.msgs.Boolean"
+  direction: ROS_TO_GZ
