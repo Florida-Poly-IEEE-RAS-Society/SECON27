@@ -209,8 +209,8 @@ Pass these after `./simulation/run_sim.sh` or `--no-gui`:
 | `gui:=false` | `true` | No window, like `--no-gui`, but the sim stays in the foreground of this terminal |
 | `cam_x:=M` | `-0.10` | OAK-D Lite mount: meters forward of the body center |
 | `cam_y:=M` | `0` | ... meters left of the centerline |
-| `cam_z:=M` | `0.185` | ... lens height above the floor, meters |
-| `cam_pitch:=DEG` | `0` | ... tilt, degrees down |
+| `cam_z:=M` | `0.25` | ... lens height above the floor, meters |
+| `cam_pitch:=DEG` | `20` | ... tilt, degrees down |
 | `cam_yaw:=DEG` | `0` | ... turn, degrees left |
 
 The `cam_*` options move the camera without editing files; see [Camera placement](#camera-placement).
@@ -294,7 +294,7 @@ The robot carries a simulated Luxonis OAK-D Lite, matched to the [published spec
 | Maximum depth | Ideal range to ~12 m | 12 m |
 | IMU | Bosch BMI270, raw accel + gyro | 200 Hz, datasheet noise (see below) |
 
-The camera is fixed (no pan or tilt). By default it sits on a mast on the rear deck, 0.185 m up, level and facing forward. Move it with the `cam_*` launch options; see [Camera placement](#camera-placement).
+The camera is fixed (no pan or tilt). By default it sits on a mast on the rear deck, 0.25 m up, tilted 20° down and facing forward. The height and tilt let it read the start AprilTag over the hood when the robot is turned to face the tag in the start box (`start_turn:=-90`); at the old 0.185 m, level mount the hood hid the bottom of the tag. Move it with the `cam_*` launch options; see [Camera placement](#camera-placement).
 
 The real sensor is 13 MP. The sim uses 640 x 480 so it runs in real time; raise `width`/`height` in the URDF to match your DepthAI pipeline if you need more detail.
 
@@ -317,8 +317,8 @@ The camera mount is set by five launch options, so you can try a mount without e
 |---|---|---|
 | `cam_x:=M` | Meters forward of `base_link` (the body center) | `-0.10` (rear deck) |
 | `cam_y:=M` | Meters left of the centerline | `0` |
-| `cam_z:=M` | Lens height above the floor, meters | `0.185` |
-| `cam_pitch:=DEG` | Tilt, degrees down | `0` |
+| `cam_z:=M` | Lens height above the floor, meters | `0.25` |
+| `cam_pitch:=DEG` | Tilt, degrees down | `20` |
 | `cam_yaw:=DEG` | Turn, degrees left | `0` |
 
 ```bash

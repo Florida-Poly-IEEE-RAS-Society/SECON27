@@ -12,8 +12,8 @@
   through from its launch options (cam_x, cam_y, cam_z, cam_pitch, cam_yaw):
     cam_x      m forward of base_link (body center)   (default -0.10, rear deck)
     cam_y      m left of the centerline                (default 0)
-    cam_z      m above the floor, lens center          (default 0.185)
-    cam_pitch  deg, positive tilts DOWN                (default 0, level)
+    cam_z      m above the floor, lens center          (default 0.25)
+    cam_pitch  deg, positive tilts DOWN                (default 20)
     cam_yaw    deg, positive turns LEFT                (default 0, forward)
   See simulation/README.md, "Camera placement".
 -->
@@ -21,8 +21,8 @@
 
   <xacro:arg name="cam_x" default="-0.10"/>
   <xacro:arg name="cam_y" default="0.0"/>
-  <xacro:arg name="cam_z" default="0.185"/>
-  <xacro:arg name="cam_pitch" default="0.0"/>
+  <xacro:arg name="cam_z" default="0.25"/>
+  <xacro:arg name="cam_pitch" default="20.0"/>
   <xacro:arg name="cam_yaw" default="0.0"/>
 
   <xacro:property name="wheel_r" value="0.035"/>

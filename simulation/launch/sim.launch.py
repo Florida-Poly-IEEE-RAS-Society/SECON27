@@ -18,8 +18,8 @@ Launch arguments (all optional):
     cam_x:=M  cam_y:=M  cam_z:=M  cam_pitch:=DEG  cam_yaw:=DEG
                             OAK-D Lite mount: m forward of the body center,
                             m left, m above the floor, deg tilted down,
-                            deg turned left. Default: rear deck, level,
-                            facing forward (-0.10, 0, 0.185, 0, 0).
+                            deg turned left. Default: rear deck, tilted 20 deg
+                            down, facing forward (-0.10, 0, 0.25, 20, 0).
 
 Example:
     ros2 launch simulation/launch/sim.launch.py seed:=42 obstacles:=2
@@ -110,9 +110,10 @@ def spawn_robot_action(context):
     )]
 
 
-# Default mount: rear deck, level, facing forward (README, "Camera placement").
-CAM_ARGS = {'cam_x': '-0.10', 'cam_y': '0.0', 'cam_z': '0.185',
-            'cam_pitch': '0.0', 'cam_yaw': '0.0'}
+# Default mount: rear deck, 0.25 m up, tilted 20 deg down so it can read the start
+# AprilTag over the hood from the start box (README, "Camera placement").
+CAM_ARGS = {'cam_x': '-0.10', 'cam_y': '0.0', 'cam_z': '0.25',
+            'cam_pitch': '20.0', 'cam_yaw': '0.0'}
 
 
 def robot_action(context):
