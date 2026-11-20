@@ -6,7 +6,7 @@ Run in a second terminal while the sim is running:
     ./simulation/run_sim.sh --tui
 
 Shows the sim clock, match timer, field layout and robot position, and gives
-one-key commands: raise the start flag, reset the match, new random field,
+one-key commands: start a round (3 s, green flag, 3:00, pause), reset the match, new random field,
 force the AprilTag, change the obstacle count, drive the robot, pause, ...
 
 Talks to Gazebo directly over gz-transport (no ROS nodes needed). Field
@@ -21,6 +21,7 @@ import os
 import sys
 import threading
 import time
+import uuid
 
 from gz.msgs10.boolean_pb2 import Boolean
 from gz.msgs10.pose_v_pb2 import Pose_V
@@ -36,17 +37,16 @@ from field_manager import to_pose  # noqa: E402
 
 WORLD = 'track'
 ROBOT = 'race_robot'
-MATCH_SECONDS = 180
 
 DRIVE_LIN_STEP, DRIVE_LIN_MAX = 0.05, 0.6     # m/s
 DRIVE_ANG_STEP, DRIVE_ANG_MAX = 0.3, 2.5      # rad/s
 
 MENU = [
     ('MATCH', [
-        ('1', 'Raise start flag (starts timer)'),
-        ('2', 'Lower start flag'),
+        ('1', 'Start round (3 s, 3:00)'),
+        ('2', 'Lower flag (ends round)'),
         ('3', 'Reset match'),
-        ('4', 'New match (reset + new field)'),
+        ('4', 'New match (+ new field)'),
     ]),
     ('FIELD', [
         ('5', 'New random field'),
@@ -178,9 +178,6 @@ class SimTui:
         self.cmd_vel = self.node.advertise('/cmd_vel', Twist)
 
         self.log = []
-        self.match_start = None      # sim time the flag went up
-        self.match_end = None        # sim time the flag went down
-        self.last_flag = None
         self.drive = None            # [linear, angular] while driving
 
         curses.curs_set(0)
@@ -232,6 +229,11 @@ class SimTui:
         self.send_field(cmd='flag', up=up)
         self.note('Start flag ' + ('raised' if up else 'lowered'))
 
+    def start_round(self):
+        self.send_field(cmd='round', id=uuid.uuid4().hex,
+                        delay=F.ROUND_FLAG_DELAY, duration=F.MATCH_SECONDS)
+        self.note(f'Round: flag up in {F.ROUND_FLAG_DELAY:g} s, sim pauses at 3:00')
+
     def robot_to_start(self):
         self.twist(0.0, 0.0)
         with self.state.lock:
@@ -245,19 +247,15 @@ class SimTui:
 
     def reset_match(self, new_field=False):
         self.drive = None
-        self.robot_to_start()
         if new_field:
-            self.send_field(cmd='layout', seed=-1)     # also lowers the flag
-        else:
-            self.send_field(cmd='flag', up=False)
-        self.match_start = self.match_end = None
-        self.last_flag = 'down'
-        # Show the flag as down right away. Otherwise the last "up" layout
-        # message, still on screen until field_manager answers, would look
-        # like a new match start.
+            self.send_field(cmd='layout', seed=-1)
+        # The same reset as `run_sim.sh --reset`.
+        self.send_field(cmd='reset', id=uuid.uuid4().hex)
+        # Show it right away, before field_manager's next layout message.
         with self.state.lock:
             if self.state.layout:
                 self.state.layout['start_flag'] = 'down'
+                self.state.layout['round'] = {'state': 'idle'}
         self.note('New match: new field, robot in start box' if new_field
                   else 'Match reset: robot in start box, flag down')
 
@@ -292,7 +290,7 @@ class SimTui:
             return self.handle_drive(key)
         k = chr(key).lower() if 0 <= key < 256 else ''
         if k == '1':
-            self.set_flag(True)
+            self.start_round()
         elif k == '2':
             self.set_flag(False)
         elif k == '3':
@@ -363,20 +361,6 @@ class SimTui:
         self.drive = [round(lin, 3), round(ang, 3)]
         return True
 
-    # ---- match timer -----------------------------------------------------
-    def update_timer(self):
-        with self.state.lock:
-            flag = (self.state.layout or {}).get('start_flag')
-            now = self.state.sim_time
-        if flag == self.last_flag or now is None:
-            return
-        if flag == 'up':
-            self.match_start, self.match_end = now, None
-            self.note('Match started (sim time)')
-        elif flag == 'down' and self.match_start is not None and self.match_end is None:
-            self.match_end = now
-        self.last_flag = flag
-
     # ---- drawing ---------------------------------------------------------
     def put(self, y, x, text, attr=0):
         h, w = self.scr.getmaxyx()
@@ -414,15 +398,24 @@ class SimTui:
         flag = (layout or {}).get('start_flag', '?')
         self.put(3, 1, 'Match', bold)
         self.put(3, 9, f'flag {flag.upper():4}', self.color('green' if flag == 'up' else 'yellow') | bold)
-        if self.match_start is None or sim_time is None:
-            self.put(3, 20, 'timer --:-- / 3:00   (raise the flag to start)')
+        rnd = (layout or {}).get('round') or {}
+        state = rnd.get('state', 'idle')
+        if state == 'countdown' or sim_time is None:
+            start = rnd.get('requested_at')
+            wait = '' if start is None or sim_time is None else \
+                f' in {max(0.0, start + rnd["delay"] - sim_time):.0f} s'
+            text = f'timer --:-- / 3:00   (flag up{wait})' if state == 'countdown' else \
+                'timer --:-- / 3:00   (1 starts a round)'
+            self.put(3, 20, text, self.color('yellow') if state == 'countdown' else 0)
+        elif state in ('running', 'over'):
+            elapsed = (rnd.get('ended_at') or sim_time) - rnd['flag_at']
+            left = rnd['duration'] - elapsed
+            attr = self.color('red') | bold if state == 'over' else (self.color('yellow') if left < 30 else 0)
+            tail = 'round over, sim paused' if state == 'over' else f'{fmt_time(left)} left'
+            self.put(3, 20, f'timer {fmt_time(elapsed)} / {int(rnd["duration"]) // 60}:{int(rnd["duration"]) % 60:02d}   {tail}', attr)
         else:
-            end = self.match_end if self.match_end is not None else sim_time
-            elapsed = end - self.match_start
-            left = MATCH_SECONDS - elapsed
-            attr = self.color('red') | bold if left < 0 else (self.color('yellow') if left < 30 else 0)
-            state = 'stopped' if self.match_end is not None else 'left'
-            self.put(3, 20, f'timer {fmt_time(elapsed)} / 3:00   {fmt_time(left)} {state}', attr)
+            note = '(round cancelled; 1 starts a round)' if state == 'cancelled' else '(1 starts a round)'
+            self.put(3, 20, f'timer --:-- / 3:00   {note}')
 
         # Field lines
         self.put(4, 1, 'Field', bold)
@@ -449,7 +442,7 @@ class SimTui:
             self.put(6, 9, 'no pose yet')
         else:
             x, y, yaw = robot
-            where = zone(x, y)
+            where = zone(*F.robot_center(x, y, yaw))   # x, y are the rear axle
             attr = self.color('red') | bold if where == 'OFF THE FIELD' else self.color('cyan')
             self.put(6, 9, f'x {x:+.3f} m  y {y:+.3f} m  heading {math.degrees(yaw):+4.0f} deg'
                            f'  speed {speed:.2f} m/s')
@@ -483,7 +476,6 @@ class SimTui:
     def run(self):
         self.note('Ready. Press a key from the menu.')
         while True:
-            self.update_timer()
             self.draw()
             self.scr.refresh()
             key = self.scr.getch()

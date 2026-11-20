@@ -218,6 +218,13 @@ QUADRANTS = {
 # Game Manual <G02>: field elements may be off by up to +/- 1 in each match.
 TOLERANCE = 1.0
 
+# Match: 3:00 from the green flag (Game Manual). A round (run_sim.sh
+# --start-round, the control panel, the batch test) raises the flag
+# ROUND_FLAG_DELAY sim seconds after it's requested and pauses the sim
+# MATCH_SECONDS after the flag.
+MATCH_SECONDS = 180.0
+ROUND_FLAG_DELAY = 3.0
+
 # --------------------------------------------------------------------------
 # Start flag  (Appendix F: "Details will be provided in Version 3.1")
 # --------------------------------------------------------------------------
@@ -291,17 +298,35 @@ def default_car_pose(color):
     return (m(quad['side'] * ax), m(y), 0.002, 0, 0, yaw)
 
 
-# Robot spawn: centered in the start box, facing the racecourse (+y).
+# Robot footprint (models/robot/robot.urdf.xacro, stock-car body).
+# base_link is the body center at axle height; the footprint center sits
+# ROBOT_CENTER_X ahead of it.
+ROBOT_FRONT = 0.135          # m ahead of base_link (front splitter)
+ROBOT_REAR = -0.126          # m (rear spoiler)
+ROBOT_HALF_W = 0.1175        # m, including the tires
+ROBOT_CENTER_X = (ROBOT_FRONT + ROBOT_REAR) / 2
+ROBOT_WHEEL_R = 0.035
+
+# Robot spawn: footprint centered in the start box, facing the racecourse
+# (+y). base_link is placed so the footprint center lands on the box center.
 # (x m, y m, z m, yaw rad)
-ROBOT_SPAWN = (m(START_BOX_X), m(START_BOX_Y), 0.05, math.pi / 2)
+ROBOT_SPAWN = (m(START_BOX_X), m(START_BOX_Y) - ROBOT_CENTER_X, ROBOT_WHEEL_R + 0.01,
+               math.pi / 2)
 
 
 def robot_spawn(turn_deg=0.0):
-    """Start-box spawn pose, turned turn_deg to the left (counter-clockwise).
+    """Start-box spawn pose (base_link), turned turn_deg to the left.
 
-    <G08> lets the technician set the robot in any orientation inside the
-    start cube. With a fixed forward camera, turning left points it at the
-    start flag tower (see simulation/README.md, "Seeing the start flag").
+    The robot turns about its footprint center, so it stays centered in the
+    start box. <G08> lets the technician set the robot in any orientation
+    inside the start cube.
     """
-    x, y, z, yaw = ROBOT_SPAWN
-    return (x, y, z, yaw + math.radians(turn_deg))
+    yaw = math.pi / 2 + math.radians(turn_deg)
+    cx, cy = m(START_BOX_X), m(START_BOX_Y)
+    return (cx - ROBOT_CENTER_X * math.cos(yaw), cy - ROBOT_CENTER_X * math.sin(yaw),
+            ROBOT_SPAWN[2], yaw)
+
+
+def robot_center(x, y, yaw):
+    """Footprint center from a base_link pose."""
+    return x + ROBOT_CENTER_X * math.cos(yaw), y + ROBOT_CENTER_X * math.sin(yaw)
