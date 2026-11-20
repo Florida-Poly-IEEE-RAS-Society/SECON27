@@ -15,8 +15,8 @@ setup(
     zip_safe=True,
     maintainer='ubuntu',
     maintainer_email='joshmg426@gmail.com',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='AprilTag detection and other perception nodes',
+    license='MIT',
     extras_require={
         'test': [
             'pytest',
@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'apriltag_node = apriltag_detection.apriltag_node:main',
         ],
     },
 )

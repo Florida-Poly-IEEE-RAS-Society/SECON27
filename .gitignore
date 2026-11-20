@@ -63,6 +63,7 @@ compile_commands.json
 
 /ros2/*
 !/ros2/README.md
+!/ros2/colcon.meta
 !/ros2/src/
 !/ros2/src/**
 
